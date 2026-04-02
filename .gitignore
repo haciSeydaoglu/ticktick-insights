@@ -1,0 +1,17 @@
+# IDE
+.idea/
+
+# Data files - SECURITY: Never commit user backup data
+*.csv
+*.CSV
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.*

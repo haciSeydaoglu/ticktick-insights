@@ -1,0 +1,47 @@
+/* ===== Screen State Management ===== */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ===== FAQ Accordion ===== */
+details summary { cursor: pointer; list-style: none; }
+details summary::-webkit-details-marker { display: none; }
+details[open] .faq-chevron { transform: rotate(90deg); }
+
+/* ===== Theme Toggle ===== */
+.theme-btn { color: #6b7280; }
+.theme-btn.active { background: #0d9488; color: #fff; }
+.theme-btn:hover:not(.active) { color: #4b5563; background: #f3f4f6; }
+.dark .theme-btn:hover:not(.active) { color: #d1d5db; background: #374151; }
+
+/* ===== UI Language Toggle ===== */
+.ui-lang-btn { color: #6b7280; }
+.ui-lang-btn.active { background: #0d9488; color: #fff; }
+.ui-lang-btn:hover:not(.active) { color: #4b5563; background: #f3f4f6; }
+.dark .ui-lang-btn:hover:not(.active) { color: #d1d5db; background: #374151; }
+
+/* ===== Prompt Language Toggle ===== */
+.prompt-lang-btn { color: #6b7280; }
+.prompt-lang-btn.active { background: #0d9488; color: #fff; }
+.prompt-lang-btn:hover:not(.active) { color: #4b5563; background: #f9fafb; }
+.dark .prompt-lang-btn:hover:not(.active) { color: #d1d5db; background: #374151; }
+
+/* ===== Drop Zone Active State ===== */
+.drop-zone.drag-over { border-color: #0d9488 !important; background: rgba(13, 148, 136, 0.04) !important; }
+.dark .drop-zone.drag-over { background: rgba(13, 148, 136, 0.1) !important; }
+
+/* ===== Collapsible ===== */
+.collapsible-body { display: none; }
+.collapsible.open .collapsible-body { display: block; }
+.collapsible.open .collapsible-arrow { transform: rotate(90deg); }
+
+/* ===== Transitions ===== */
+.bar-fill { transition: height 0.4s ease; min-height: 3px; }
+.progress-fill { transition: width 0.4s ease; }
+
+/* ===== Custom Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+.dark ::-webkit-scrollbar-thumb { background: #374151; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
