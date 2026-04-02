@@ -145,19 +145,29 @@ function buildDataLines(analysis, t) {
       lines.push(`\n### ${localizeSpecialName(list.name, t)}`);
 
       if (list.pendingTasks.length > 0) {
-        lines.push(`\n**${t.latestPending} (${list.pendingTasks.length}):**`);
-        for (const task of list.pendingTasks) {
+        const shownPending = list.pendingTasks.slice(0, 5);
+        const morePending = list.pending - shownPending.length;
+        lines.push(`\n**${t.latestPending}:**`);
+        for (const task of shownPending) {
           const prio = task.priority > 0 ? ` [${getPriorityLabelForPrompt(task.priority, t)}]` : '';
           const date = task.createdTime ? ` (${formatDate(task.createdTime)})` : '';
           lines.push(`  - ${truncate(task.title, 50)}${prio}${date}`);
         }
+        if (morePending > 0) {
+          lines.push(`  + ${morePending} ${t.moreTasks}`);
+        }
       }
 
       if (list.completedTasks.length > 0) {
-        lines.push(`\n**${t.latestCompleted} (${list.completedTasks.length}):**`);
-        for (const task of list.completedTasks) {
+        const shownCompleted = list.completedTasks.slice(0, 5);
+        const moreCompleted = list.completed - shownCompleted.length;
+        lines.push(`\n**${t.latestCompleted}:**`);
+        for (const task of shownCompleted) {
           const date = task.completedTime ? ` (${formatDate(task.completedTime)})` : '';
           lines.push(`  - ${truncate(task.title, 50)}${date}`);
+        }
+        if (moreCompleted > 0) {
+          lines.push(`  + ${moreCompleted} ${t.moreTasks}`);
         }
       }
     }
@@ -442,6 +452,7 @@ const translations = {
     perListDetail: 'Liste Bazlı Görev Detayları',
     latestPending: 'Son bekleyen görevler',
     latestCompleted: 'Son tamamlanan görevler',
+    moreTasks: 'görev daha',
     keyInsights: 'Önemli Bulgular',
     avgCompletion: 'Ortalama tamamlama süresi',
     days: 'gün',
@@ -661,6 +672,7 @@ const translations = {
     perListDetail: 'Per-List Task Details',
     latestPending: 'Latest pending tasks',
     latestCompleted: 'Latest completed tasks',
+    moreTasks: 'more tasks',
     keyInsights: 'Key Insights',
     avgCompletion: 'Average completion time',
     days: 'days',

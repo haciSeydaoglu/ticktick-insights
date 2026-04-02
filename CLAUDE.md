@@ -70,5 +70,5 @@ Then open http://localhost:8080
 - Single-pass analysis: analyzer.js iterates tasks once to build all groupings
 - Prompt size target: 5-15KB (vs raw CSV which can be megabytes)
 - Prompt may ask the pasted-into AI tool for selective current research, but the app itself must remain fully local and make no network requests
-- Per-list detail: last 10 pending + last 10 completed tasks only
+- Per-list detail: top 5 pending + top 5 completed tasks shown in prompt; remaining count shown as "+ X more" using list totals
 - Feature usage scoring: Low/Medium/Good based on usage percentages
