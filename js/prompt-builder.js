@@ -5,7 +5,7 @@
  * Keeps prompt size between 5-15KB to be context-friendly.
  */
 
-import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js?v=0.1.10';
+import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js?v=0.1.11';
 
 const DEFAULT_CONTEXT = {
   users: 'solo',
@@ -486,7 +486,7 @@ const translations = {
     routineCompletions: 'rutin tamamlanma',
     uniqueCompletions: 'tekil tamamlanma',
     uniqueCompletionRate: 'tekil tamamlanma oranı',
-    customPriorityNote: '> **Kullanıcı notu:** Öncelik seviyelerini şu şekilde kullanıyorum: Yüksek = Sprint (bu hafta yapılacak), Orta = Next (sıradaki), Düşük = Backlog (ileride yapılacak), Yok = Triage (henüz sınıflandırılmamış). Analizini ve önerilerini bu kullanıma göre kalibre et.',
+    customPriorityNote: '> **Kullanıcı notu:** TickTick\'in öncelik seviyelerini custom filtrelerle birleştirerek bir iş akışı sistemi olarak kullanıyorum: Yüksek = Sprint (bu hafta yapılacak — "Sprint" filtresi ile takip ediyorum), Orta = Next (sıradaki iş — "Next" filtresi), Düşük = Backlog (ileride yapılacak — "Backlog" filtresi), Yok = Triage (henüz sınıflandırılmamış, inbox gibi). Dolayısıyla öncelik dağılımı klasik aciliyet anlamında değil, kanban benzeri bir aşama sistemi olarak yorumlanmalı. Analizini ve önerilerini bu kullanıma göre kalibre et.',
     emojiSuggestionsTitle: 'Liste Emoji Önerileri',
     emojiSuggestionsIntro: 'Aşağıdaki listeler için uygun bir emoji ve onu bulmak için kullanılabilecek İngilizce bir arama kelimesi öner:',
     emojiSuggestionsFormat: 'Format: Liste Adı | Önerilen Emoji | Search Keyword',
@@ -711,7 +711,7 @@ const translations = {
     routineCompletions: 'routine completions',
     uniqueCompletions: 'one-off completions',
     uniqueCompletionRate: 'unique completion rate',
-    customPriorityNote: '> **User note:** I use priority levels as follows: High = Sprint (do this week), Medium = Next (up next), Low = Backlog (future), None = Triage (not yet classified). Calibrate your analysis and recommendations to this mapping.',
+    customPriorityNote: '> **User note:** I use TickTick\'s priority levels combined with custom filters as a workflow system: High = Sprint (do this week — tracked via a "Sprint" filter), Medium = Next (up next — "Next" filter), Low = Backlog (future — "Backlog" filter), None = Triage (not yet classified, acts like an inbox). Therefore, priority distribution should not be interpreted as classic urgency but as a kanban-like stage system. Calibrate your analysis and recommendations to this workflow.',
     emojiSuggestionsTitle: 'List Emoji Suggestions',
     emojiSuggestionsIntro: 'For each of the following lists, suggest an appropriate emoji and an English search keyword to find it:',
     emojiSuggestionsFormat: 'Format: List Name | Suggested Emoji | Search Keyword',
