@@ -8,7 +8,7 @@
 import { parseTickTickCSV, validateFile } from './csv-parser.js';
 import { analyze } from './analyzer.js';
 import { renderDashboard } from './dashboard.js';
-import { buildPrompt } from './prompt-builder.js';
+import { buildPrompt, buildPromptData } from './prompt-builder.js';
 import { setUILang, getUILang, t } from './i18n.js';
 import { createEl } from './utils.js';
 import { APP_VERSION } from './version.js';
@@ -71,6 +71,13 @@ const PROMPT_CONTEXT_QUESTIONS = [
   },
 ];
 
+const PROMPT_VIEW_OPTIONS = [
+  { value: 'full', labelKey: 'promptViewFull' },
+  { value: 'raw', labelKey: 'promptViewRaw' },
+];
+
+const PROMPT_CONTEXT_STORAGE_KEY = 'ticktick-prompt-context';
+
 function createDefaultPromptContext() {
   return {
     users: 'solo',
@@ -81,10 +88,52 @@ function createDefaultPromptContext() {
   };
 }
 
+function createEmptyPromptCache() {
+  return {
+    full: { tr: '', en: '' },
+    raw: { tr: '', en: '' },
+  };
+}
+
+function normalizePromptContext(context) {
+  const defaults = createDefaultPromptContext();
+  const source = context && typeof context === 'object' ? context : {};
+  const normalized = {};
+
+  for (const question of PROMPT_CONTEXT_QUESTIONS) {
+    const fallbackValue = defaults[question.id];
+    const rawValue = source[question.id];
+
+    if (question.type === 'single') {
+      const isValid = question.options.some((option) => option.value === rawValue);
+      normalized[question.id] = isValid ? rawValue : fallbackValue;
+      continue;
+    }
+
+    const nextValues = getOrderedMultiValue(question, Array.isArray(rawValue) ? rawValue : []);
+    normalized[question.id] = nextValues.length > 0 ? nextValues : fallbackValue;
+  }
+
+  return normalized;
+}
+
+function loadPromptContext() {
+  try {
+    return normalizePromptContext(JSON.parse(localStorage.getItem(PROMPT_CONTEXT_STORAGE_KEY)));
+  } catch {
+    return createDefaultPromptContext();
+  }
+}
+
+function savePromptContext(context) {
+  localStorage.setItem(PROMPT_CONTEXT_STORAGE_KEY, JSON.stringify(normalizePromptContext(context)));
+}
+
 // State
 let currentAnalysis = null;
-let promptCache = { tr: '', en: '' };
-let promptContext = createDefaultPromptContext();
+let promptCache = createEmptyPromptCache();
+let promptContext = loadPromptContext();
+let promptViewMode = 'full';
 
 // DOM references
 const screenUpload = document.getElementById('screen-upload');
@@ -96,6 +145,7 @@ const fileInput = document.getElementById('file-input');
 const uploadError = document.getElementById('upload-error');
 const dashboardContainer = document.getElementById('dashboard-container');
 const promptSection = document.getElementById('prompt-section');
+const promptViewControls = document.getElementById('prompt-view-controls');
 const promptContextControls = document.getElementById('prompt-context-controls');
 const promptOutput = document.getElementById('prompt-output');
 const btnCopy = document.getElementById('btn-copy');
@@ -134,20 +184,42 @@ function isOptionSelected(question, optionValue) {
 }
 
 function syncPromptOutput() {
-  promptOutput.value = promptCache[getUILang()] || '';
+  promptOutput.value = promptCache[promptViewMode][getUILang()] || '';
 }
 
 function rebuildPromptCache() {
   if (!currentAnalysis) return;
   const lang = getUILang();
   const otherLang = lang === 'tr' ? 'en' : 'tr';
-  promptCache[lang] = buildPrompt(currentAnalysis, lang, promptContext);
-  promptCache[otherLang] = '';
+  promptCache.full[lang] = buildPrompt(currentAnalysis, lang, promptContext);
+  promptCache.raw[lang] = buildPromptData(currentAnalysis, lang);
+  promptCache.full[otherLang] = '';
+  promptCache.raw[otherLang] = '';
 }
 
 function refreshPromptFromState() {
   if (!currentAnalysis) return;
   rebuildPromptCache();
+  syncPromptOutput();
+}
+
+function syncPromptModeUI() {
+  if (!promptContextControls) return;
+  promptContextControls.hidden = promptViewMode === 'raw';
+}
+
+function setPromptViewMode(mode) {
+  if (!PROMPT_VIEW_OPTIONS.some((option) => option.value === mode)) return;
+  if (promptViewMode === mode) return;
+
+  promptViewMode = mode;
+  renderPromptViewControls();
+  syncPromptModeUI();
+
+  if (currentAnalysis && !promptCache[mode][getUILang()]) {
+    rebuildPromptCache();
+  }
+
   syncPromptOutput();
 }
 
@@ -172,8 +244,25 @@ function updatePromptContext(questionId, optionValue) {
     promptContext = { ...promptContext, [questionId]: nextValues };
   }
 
+  savePromptContext(promptContext);
   renderPromptContextControls();
   refreshPromptFromState();
+}
+
+function createPromptViewButton(option) {
+  const selected = promptViewMode === option.value;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = [
+    'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+    selected
+      ? 'bg-teal-600 text-white border-teal-600 dark:bg-teal-600 dark:text-white dark:border-teal-500'
+      : 'bg-white text-gray-600 border-gray-200 hover:border-teal-300 hover:text-teal-700 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-700 dark:hover:border-teal-600 dark:hover:text-teal-300',
+  ].join(' ');
+  btn.textContent = t(option.labelKey);
+  btn.setAttribute('aria-pressed', String(selected));
+  btn.addEventListener('click', () => setPromptViewMode(option.value));
+  return btn;
 }
 
 function createContextOptionButton(question, option) {
@@ -190,6 +279,23 @@ function createContextOptionButton(question, option) {
   btn.setAttribute('aria-pressed', String(selected));
   btn.addEventListener('click', () => updatePromptContext(question.id, option.value));
   return btn;
+}
+
+function renderPromptViewControls() {
+  if (!promptViewControls) return;
+
+  promptViewControls.textContent = '';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'flex flex-wrap items-center gap-2';
+
+  wrapper.appendChild(createEl('span', t('promptViewHeading'), 'text-xs font-medium text-gray-700 dark:text-gray-300 mr-1'));
+
+  for (const option of PROMPT_VIEW_OPTIONS) {
+    wrapper.appendChild(createPromptViewButton(option));
+  }
+
+  promptViewControls.appendChild(wrapper);
 }
 
 function renderPromptContextControls() {
@@ -422,7 +528,9 @@ function refreshResultsIfVisible() {
   document.body.appendChild(promptSection);
   renderDashboard(currentAnalysis, dashboardContainer);
   insertPromptInDashboard();
+  renderPromptViewControls();
   renderPromptContextControls();
+  syncPromptModeUI();
   if (window.lucide) lucide.createIcons();
   rebuildPromptCache();
   syncPromptOutput();
@@ -444,7 +552,9 @@ function processCSVText(rawText, fileName, fileSize) {
     processingText.textContent = t('rendering');
     renderDashboard(currentAnalysis, dashboardContainer);
     insertPromptInDashboard();
+    renderPromptViewControls();
     renderPromptContextControls();
+    syncPromptModeUI();
     if (window.lucide) lucide.createIcons();
     syncPromptOutput();
 
@@ -617,10 +727,14 @@ for (const link of document.querySelectorAll('.ai-copy-link')) {
 // Reset to upload screen
 function resetToUpload() {
   currentAnalysis = null;
-  promptCache = { tr: '', en: '' };
+  promptCache = createEmptyPromptCache();
+  promptViewMode = 'full';
   promptOutput.value = '';
   dashboardContainer.textContent = '';
   promptSection.classList.add('hidden');
+  renderPromptViewControls();
+  renderPromptContextControls();
+  syncPromptModeUI();
   fileInput.value = '';
   hideError();
   showScreen(screenUpload);
@@ -635,4 +749,6 @@ btnClearRecent.addEventListener('click', clearRecentFiles);
 // Initial render of recent files on page load
 renderAppVersion();
 renderRecentFiles();
+renderPromptViewControls();
 renderPromptContextControls();
+syncPromptModeUI();

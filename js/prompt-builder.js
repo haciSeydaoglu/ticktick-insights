@@ -66,47 +66,21 @@ function getScoreLabel(score, t) {
   return t.scoreLabels[score] || score.toUpperCase();
 }
 
+function formatPriorityBreakdownLine(priorityData, t) {
+  const total = formatNumber(priorityData?.count || 0);
+  const completed = formatNumber(priorityData?.completedCount || 0);
+  const pending = formatNumber(priorityData?.pendingCount || 0);
+  return `${t.totalLabel} ${total} | ${t.completed} ${completed} | ${t.pending} ${pending}`;
+}
+
 function localizeSpecialName(name, t) {
   if (name === '(No Folder)') return t.noFolder;
   if (name === '(No List)') return t.noList;
   return name;
 }
 
-/**
- * Build the complete prompt string for the given language.
- * @param {Object} analysis - Analysis result from analyzer.js
- * @param {'tr'|'en'} lang - Language code
- * @param {Object} context - Prompt context selections from UI
- * @returns {string} Complete prompt text
- */
-export function buildPrompt(analysis, lang = 'tr', context = DEFAULT_CONTEXT) {
-  const t = translations[lang];
-  const normalizedContext = normalizeContext(context);
+function buildDataLines(analysis, t) {
   const lines = [];
-
-  // --- SANDWICH TOP: System instructions before data ---
-  lines.push(t.header);
-  lines.push('');
-  lines.push(t.systemBlock);
-  lines.push('');
-
-  lines.push(`## ${t.userContextTitle}`);
-  lines.push(t.userContextIntro);
-  lines.push(`- ${t.contextQuestions.users}: ${localizeContextAnswer('users', normalizedContext.users, t)}`);
-  lines.push(`- ${t.contextQuestions.useCases}: ${localizeContextAnswer('useCases', normalizedContext.useCases, t)}`);
-  lines.push(`- ${t.contextQuestions.painPoints}: ${localizeContextAnswer('painPoints', normalizedContext.painPoints, t)}`);
-  lines.push(`- ${t.contextQuestions.optimize}: ${localizeContextAnswer('optimize', normalizedContext.optimize, t)}`);
-  lines.push(`- ${t.contextQuestions.style}: ${localizeContextAnswer('style', normalizedContext.style, t)}`);
-  lines.push('');
-
-  lines.push(`## ${t.calibrationTitle}`);
-  lines.push(t.calibrationIntro);
-  for (const guidance of buildContextGuidance(normalizedContext, t)) {
-    lines.push(`- ${guidance}`);
-  }
-  lines.push('');
-
-  // --- DATA SECTION ---
 
   // Summary section
   lines.push(`## ${t.overview}`);
@@ -123,10 +97,10 @@ export function buildPrompt(analysis, lang = 'tr', context = DEFAULT_CONTEXT) {
 
   // Priority breakdown
   lines.push(`## ${t.priorityDist}`);
-  lines.push(`- ${t.priorityHigh}: ${analysis.priorityBreakdown[5]?.count || 0}`);
-  lines.push(`- ${t.priorityMedium}: ${analysis.priorityBreakdown[3]?.count || 0}`);
-  lines.push(`- ${t.priorityLow}: ${analysis.priorityBreakdown[1]?.count || 0}`);
-  lines.push(`- ${t.priorityNone}: ${analysis.priorityBreakdown[0]?.count || 0}`);
+  lines.push(`- ${t.priorityHigh}: ${formatPriorityBreakdownLine(analysis.priorityBreakdown[5], t)}`);
+  lines.push(`- ${t.priorityMedium}: ${formatPriorityBreakdownLine(analysis.priorityBreakdown[3], t)}`);
+  lines.push(`- ${t.priorityLow}: ${formatPriorityBreakdownLine(analysis.priorityBreakdown[1], t)}`);
+  lines.push(`- ${t.priorityNone}: ${formatPriorityBreakdownLine(analysis.priorityBreakdown[0], t)}`);
   lines.push('');
 
   // Feature usage
@@ -203,13 +177,66 @@ export function buildPrompt(analysis, lang = 'tr', context = DEFAULT_CONTEXT) {
   }
   lines.push('');
 
-  // TickTick features reference
+  return lines;
+}
+
+function buildTickTickFeatureLines(t) {
+  const lines = [];
+
   lines.push(`## ${t.ticktickFeatures}`);
   lines.push('');
   for (const feat of t.features) {
     lines.push(`- **${feat.name}**: ${feat.desc}`);
   }
   lines.push('');
+
+  return lines;
+}
+
+export function buildPromptData(analysis, lang = 'tr') {
+  const t = translations[lang] || translations.tr;
+  return buildDataLines(analysis, t).join('\n');
+}
+
+/**
+ * Build the complete prompt string for the given language.
+ * @param {Object} analysis - Analysis result from analyzer.js
+ * @param {'tr'|'en'} lang - Language code
+ * @param {Object} context - Prompt context selections from UI
+ * @returns {string} Complete prompt text
+ */
+export function buildPrompt(analysis, lang = 'tr', context = DEFAULT_CONTEXT) {
+  const t = translations[lang] || translations.tr;
+  const normalizedContext = normalizeContext(context);
+  const lines = [];
+
+  // --- SANDWICH TOP: System instructions before data ---
+  lines.push(t.header);
+  lines.push('');
+  lines.push(t.systemBlock);
+  lines.push('');
+
+  lines.push(`## ${t.userContextTitle}`);
+  lines.push(t.userContextIntro);
+  lines.push(`- ${t.contextQuestions.users}: ${localizeContextAnswer('users', normalizedContext.users, t)}`);
+  lines.push(`- ${t.contextQuestions.useCases}: ${localizeContextAnswer('useCases', normalizedContext.useCases, t)}`);
+  lines.push(`- ${t.contextQuestions.painPoints}: ${localizeContextAnswer('painPoints', normalizedContext.painPoints, t)}`);
+  lines.push(`- ${t.contextQuestions.optimize}: ${localizeContextAnswer('optimize', normalizedContext.optimize, t)}`);
+  lines.push(`- ${t.contextQuestions.style}: ${localizeContextAnswer('style', normalizedContext.style, t)}`);
+  lines.push('');
+
+  lines.push(`## ${t.calibrationTitle}`);
+  lines.push(t.calibrationIntro);
+  for (const guidance of buildContextGuidance(normalizedContext, t)) {
+    lines.push(`- ${guidance}`);
+  }
+  lines.push('');
+
+  // --- DATA SECTION ---
+  lines.push(...buildDataLines(analysis, t));
+
+  // TickTick features reference
+  lines.push(...buildTickTickFeatureLines(t));
 
   // --- SANDWICH BOTTOM: Analytical framework + detailed requests ---
 
@@ -328,6 +355,7 @@ const translations = {
     },
     overview: 'Genel Bakış',
     totalTasks: 'Toplam görev',
+    totalLabel: 'Toplam',
     completed: 'Tamamlanan',
     pending: 'Bekleyen',
     deleted: 'Silinen',
@@ -525,6 +553,7 @@ const translations = {
     },
     overview: 'Overview',
     totalTasks: 'Total tasks',
+    totalLabel: 'Total',
     completed: 'Completed',
     pending: 'Pending',
     deleted: 'Deleted',
