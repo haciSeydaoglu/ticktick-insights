@@ -1,6 +1,6 @@
 # TickTick Insights
 
-> **Turkce icin asagiya bakin / [Turkce](#turkce)**
+> **Türkçe için aşağıya bakın / [Türkçe](#türkçe)**
 
 Analyze your TickTick backup CSV and generate AI-ready productivity prompts.
 
@@ -56,43 +56,41 @@ MIT
 
 ---
 
-<a id="turkce"></a>
+## Türkçe
 
-# TickTick Insights (Turkce)
+TickTick yedek CSV dosyanızı analiz edin ve yapay zekaya hazır verimlilik promptları oluşturun.
 
-TickTick yedek CSV dosyanizi analiz edin ve yapay zekaya hazir verimlilik promptlari olusturun.
+**TickTick Insights** TickTick yedek dosyanızı tamamen tarayıcıda işler, kullanım istatistikleriyle görsel bir dashboard oluşturur ve kişiselleştirilmiş verimlilik önerileri için herhangi bir AI asistanına yapıştırabileceğiniz optimize edilmiş bir prompt üretir.
 
-**TickTick Insights** TickTick yedek dosyanizi tamamen tarayicida isler, kullanim istatistikleriyle gorsel bir dashboard olusturur ve kisisellestirilmis verimlilik onerileri icin herhangi bir AI asistanina yapistirabileceginiz optimize edilmis bir prompt uretir.
+### Özellikler
 
-## Ozellikler
+- **Gizlilik öncelikli**: Verileriniz tarayıcınızdan asla çıkmaz. Sunucu yok, depolama yok, çerez yok.
+- **Görsel Dashboard**: Özet istatistikler, öncelik dağılımı, özellik kullanım analizi, zaman çizelgesi, liste bazlı görev detayları.
+- **AI Prompt Oluşturucu**: Türkçe veya İngilizce, yapılandırılmış ve özlü bir prompt oluşturur (ham CSV megabaytlarına karşı 5-15KB).
+- **Özellik Kullanım Skorlaması**: TickTick özelliklerini (öncelik, etiket, hatırlatıcı, tekrarlayan görevler vb.) ne kadar iyi kullandığınızı best practice skorlarıyla analiz eder.
+- **Sıfır Bağımlılık**: Saf HTML/CSS/JS, build adımı yok, framework yok.
 
-- **Gizlilik oncelikli**: Verileriniz tarayicinizdan asla cikmaz. Sunucu yok, depolama yok, cerez yok.
-- **Gorsel Dashboard**: Ozet istatistikler, oncelik dagilimi, ozellik kullanim analizi, zaman cizelgesi, liste bazli gorev detaylari.
-- **AI Prompt Olusturucu**: Turkce veya Ingilizce, yapilandirilmis ve ozlu bir prompt olusturur (ham CSV megabaylarina karsi 5-15KB).
-- **Ozellik Kullanim Skorlamasi**: TickTick ozelliklerini (oncelik, etiket, hatirlatici, tekrarlayan gorevler vb.) ne kadar iyi kullandiginizi best practice skorlariyla analiz eder.
-- **Sifir Bagimlilik**: Saf HTML/CSS/JS, build adimi yok, framework yok.
+### Nasıl Kullanılır
 
-## Nasil Kullanilir
+#### 1. TickTick yedeğinizi dışa aktarın
 
-### 1. TickTick yedeginizi disa aktarin
+1. [TickTick Web Ayarları](https://ticktick.com/webapp/#q/all/tasks?modalType=settings) → Ayarlar → Yedek Oluştur
+2. CSV dosyasını indirin (**Not:** Yedek sadece web sürümünden alınabilir)
 
-1. [TickTick Web Ayarlari](https://ticktick.com/webapp/#q/all/tasks?modalType=settings) → Ayarlar → Yedek Olustur
-2. CSV dosyasini indirin (**Not:** Yedek sadece web surumunden alinabilir)
-
-### 2. Yukle ve Analiz Et
+#### 2. Yükle ve Analiz Et
 
 1. [TickTick Insights](https://haciseydaoglu.github.io/ticktick-insights/) adresini ziyaret edin
-2. CSV dosyanizi surukleyip birakin veya "Choose File"a tiklayin
-3. Dashboard'u goruntuleyip AI promptunu kopyalayin
+2. CSV dosyanızı sürükleyip bırakın veya "Choose File"a tıklayın
+3. Dashboard'u görüntüleyip AI promptunu kopyalayın
 
-## Guvenlik
+### Güvenlik
 
-- **Dis istek yok**: Uygulama sifir ag cagrisi yapar.
-- **Content Security Policy**: Kati CSP basliklari script enjeksiyonunu onler.
-- **XSS Korumasi**: Tum kullanici verisi `textContent` ile render edilir.
-- **Depolama yok**: localStorage, sessionStorage veya cerez kullanilmaz.
-- **CSV dosyalari gitignore'da**: Kullanici verisi asla repository'ye commit edilmez.
+- **Dış istek yok**: Uygulama sıfır ağ çağrısı yapar.
+- **Content Security Policy**: Katı CSP başlıkları script enjeksiyonunu önler.
+- **XSS Koruması**: Tüm kullanıcı verisi `textContent` ile render edilir.
+- **Depolama yok**: localStorage, sessionStorage veya çerez kullanılmaz.
+- **CSV dosyaları gitignore'da**: Kullanıcı verisi asla repository'ye commit edilmez.
 
-## Lisans
+### Lisans
 
 MIT
