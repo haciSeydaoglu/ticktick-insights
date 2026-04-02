@@ -38,6 +38,21 @@ This command automates the TickTick Insights release workflow. It is an **explic
 3. Edit `js/version.js`: replace the `APP_VERSION` value with the new version string
 4. Confirm the edit was applied correctly
 
+## Step 3.5: Update Cache-Bust Version Stamps
+
+After bumping the version in `version.js`, update all `?v=X.Y.Z` query strings across the project to match the **new** version:
+
+1. **Files to update:**
+   - `index.html` — `css/style.css?v=...` and `js/app.js?v=...`
+   - `js/app.js` — all 7 `import ... from './xxx.js?v=...'` lines
+   - `js/analyzer.js` — `import ... from './utils.js?v=...'`
+   - `js/dashboard.js` — `import ... from './utils.js?v=...'` and `import ... from './i18n.js?v=...'`
+   - `js/prompt-builder.js` — `import ... from './utils.js?v=...'`
+
+2. **How:** In each file, replace every occurrence of `?v=OLD_VERSION` (the previous version string) with `?v=NEW_VERSION`. Use the Edit tool with `replace_all: true` for each file.
+
+3. **Verify** that no stale version stamps remain: search for the old version string across all `.js` and `.html` files (excluding `version.js` itself, which was already updated in Step 3).
+
 ## Step 4: Compose the Commit Message
 
 Analyze the diff content and write a concise **English** commit message:
