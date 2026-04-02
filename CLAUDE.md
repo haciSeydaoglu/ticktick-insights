@@ -3,7 +3,7 @@
 ## Project Overview
 A client-side web application that analyzes TickTick backup CSV files and generates:
 1. A visual insight dashboard showing usage statistics
-2. An AI-optimized prompt (TR/EN) summarizing the data for productivity analysis
+2. An AI-optimized prompt (TR/EN) summarizing the data for productivity analysis, with optional guidance for compatible AI tools to do selective current best-practice research
 
 **Zero backend. Local browser storage only. Privacy-first.**
 
@@ -69,5 +69,6 @@ Then open http://localhost:8080
 ## Key Design Decisions
 - Single-pass analysis: analyzer.js iterates tasks once to build all groupings
 - Prompt size target: 5-15KB (vs raw CSV which can be megabytes)
+- Prompt may ask the pasted-into AI tool for selective current research, but the app itself must remain fully local and make no network requests
 - Per-list detail: last 10 pending + last 10 completed tasks only
 - Feature usage scoring: Low/Medium/Good based on usage percentages

@@ -280,6 +280,10 @@ const translations = {
 > - Jenerik verimlilik tavsiyesi verme. Her önerin bu verideki somut bir bulguya dayanmalı.
 > - Her liste/etiket için şablon cümle kullanma — her birini gerçekten verideki davranışa göre değerlendir.
 > - Tüm öneriler yalnızca TickTick içinde uygulanabilir olmalı. Başka uygulama veya araç önerme.
+> - Bu TickTick verisini birincil kaynak kabul et. Veriden doğrudan okunabilen konular için dış araştırma uydurma veya gereksiz yere kullanma.
+> - Metodoloji, best practice, görev yönetimi trendleri veya önerinin güncelliği önemliyse; web araştırması yapabiliyorsan kısa ve seçici bir güncel araştırma yap. Yapamıyorsan bunu açıkça söyle ve yalnızca bu veriye dayan.
+> - Veriden gelen çıkarımlarla dış kaynaklardan gelen best practice/trend önerilerini birbirine karıştırma. Hangisinin veri temelli, hangisinin güncel dış kaynağa dayalı olduğunu netleştir.
+> - Dış kaynak kullandığında popüler ama yüzeysel tavsiyeleri değil, son dönemde hâlâ işe yarayan ve TickTick içinde uygulanabilir pratikleri tercih et.
 > - Bir kavram veya metodolojiden bahsettiğinde kısaca ne olduğunu açıkla.
 > - Kullanıcının açıkça verdiği bağlam veriden çıkarım yapmaktan daha güvenilirdir. Çelişki varsa açık bağlamı önceliklendir.
 > - Yanıtını bu prompt ile aynı dilde ver.
@@ -431,7 +435,10 @@ const translations = {
 - **Silme oranı:** Yüksek silme oranı aşırı yüklenme veya plansız görev ekleme sinyali olabilir.
 - **Öncelik kullanımı:** Düşük kullanım oranı önceliklendirme alışkanlığının eksikliğine işaret edebilir.
 - **Feature usage skorları:** LOW = neredeyse hiç kullanılmıyor, MEDIUM = kısmen, GOOD = aktif kullanılıyor.
-- **Küçük listeler ve düşük performanslı etiketler:** Bağlama göre birleştirme, silme veya yeniden yapılandırma öner — karar senin.`,
+- **Küçük listeler ve düşük performanslı etiketler:** Bağlama göre birleştirme, silme veya yeniden yapılandırma öner — karar senin.
+- **Dış araştırma eşiği:** Veriden doğrudan okunabilen şeyleri araştırma ile doğrulamaya çalışma. Araştırmayı yalnızca güncel best practice, metodoloji kıyası, trend veya davranış önerisinin güncelliği için kullan.
+- **Trend filtresi:** "Trend" derken moda olanı değil; son dönemde işe yaradığını koruyan, uygulanabilir ve düşük sürtünmeli pratikleri kastet.
+- **Kanıt ayrımı:** Veri temelli bulgular ile dış kaynak destekli önerileri ayrı ve açık biçimde sun.`,
     requestTitle: 'Senden İstenen Analiz ve Öneriler',
     requestIntro: 'Yukarıdaki verileri ve referans çerçevesini kullanarak aşağıdaki başlıklarda analiz yap. Başlıklar yol gösterici — verilerde dikkatini çeken ama bu başlıklara sığmayan şeyleri de paylaş.',
     requests: [
@@ -461,12 +468,17 @@ const translations = {
         format: 'Format: Özellik | Mevcut kullanım | Spesifik öneri',
       },
       {
+        title: 'Güncel Best Practice ve Trend Kıyaslaması',
+        desc: 'Gerekliyse kısa bir güncel araştırma yaparak bu kullanıcının sistemi ile güncel productivity/task-management best practice\'lerini kıyasla. Son dönemde öne çıkan ama gerçekten faydalı olan en fazla 3-5 yaklaşımı seç. Sadece bu kullanıcının verisine ve TickTick içindeki kullanımına uyanları öner. Araştırma yapamadıysan bunu açıkça belirt.',
+        format: 'Format: Yaklaşım | Bu verideki karşılığı | Neden uygun / neden gereksiz | TickTick içinde nasıl uygulanır',
+      },
+      {
         title: 'Aksiyon Planı',
         desc: 'Tüm analizini somut adımlara dönüştür. Her adım TickTick içinde yapılabilir olmalı ve hangi menüden/özellikten yapılacağı belli olmalı.',
         format: 'Format: 3 grup (Hemen — bu hafta | Kısa vade — bu ay | Uzun vade — alışkanlık), her grupta en fazla 5 madde',
       },
     ],
-    requestOutro: `Cesur ve doğrudan ol. Verilerin söylediğini söyle — nazik olmak için gerçekleri yumuşatma. Gereksiz yapıları sadeleştirmekten, kullanılmayan şeyleri kaldırmaktan çekinme. GTD, Eisenhower matrisi, PARA gibi çerçeveleri uygun gördüğün yerde kullan ama bunlara bağlı kalma.`,
+    requestOutro: `Cesur ve doğrudan ol. Verilerin söylediğini söyle — nazik olmak için gerçekleri yumuşatma. Gereksiz yapıları sadeleştirmekten, kullanılmayan şeyleri kaldırmaktan çekinme. GTD, Eisenhower matrisi, PARA gibi çerçeveleri uygun gördüğün yerde kullan ama bunlara bağlı kalma. Yanıtının sonunda kısa bir "Kaynaklar" bölümü ekle; dış araştırma yaptıysan yalnızca gerçekten dayandığın birkaç kaynak/link ver, yapmadıysan araştırma yapılmadığını kısaca belirt.`,
   },
 
   en: {
@@ -478,6 +490,10 @@ const translations = {
 > - No generic productivity advice. Every recommendation must be grounded in a specific finding from this data.
 > - Don't use template sentences for each list/tag — evaluate each one based on actual behavioral data.
 > - All recommendations must be actionable within TickTick only. Do not suggest other apps or tools.
+> - Treat this TickTick data as the primary source. Do not invent or overuse external research for things that are directly visible in the data.
+> - If methodology, best practice, task-management trends, or recommendation freshness matters, do a short and selective current web research pass if you have browsing access. If you do not, state that clearly and proceed from the provided data only.
+> - Keep data-derived conclusions separate from externally supported best-practice or trend recommendations. Make it clear which claims come from the user's data and which come from current outside sources.
+> - When you use external sources, prefer recent approaches that still appear genuinely useful and practical inside TickTick, not shallow hype or novelty.
 > - When you mention a concept or methodology, briefly explain what it is.
 > - Explicit user-provided context is more reliable than inferred context. If there is a conflict, prioritize the explicit context.
 > - Respond in the same language as this prompt.
@@ -629,7 +645,10 @@ const translations = {
 - **Deletion rate:** A high deletion rate may signal overcommitment or unplanned task creation.
 - **Priority usage:** Low usage may indicate a lack of prioritization habits.
 - **Feature usage scores:** LOW = barely used, MEDIUM = partially used, GOOD = actively used.
-- **Small lists and underperforming tags:** Suggest merging, deleting, or restructuring based on context — the decision is yours.`,
+- **Small lists and underperforming tags:** Suggest merging, deleting, or restructuring based on context — the decision is yours.
+- **External research threshold:** Do not research things that are already directly answerable from the dataset. Use research only for current best practices, methodology comparisons, trends, or freshness-sensitive guidance.
+- **Trend filter:** By "trend," mean approaches that have gained traction recently and still seem practical, sustainable, and low-friction, not whatever is merely fashionable.
+- **Evidence separation:** Present data-grounded findings separately from recommendations supported by outside sources.`,
     requestTitle: 'Requested Analysis & Recommendations',
     requestIntro: 'Using the data and reference framework above, analyze the following topics. These are guiding topics — also share anything else you notice in the data that doesn\'t fit these headings.',
     requests: [
@@ -659,11 +678,16 @@ const translations = {
         format: 'Format: Feature | Current usage | Specific recommendation',
       },
       {
+        title: 'Current Best-Practice & Trend Comparison',
+        desc: 'If needed, do a short current research pass and compare this system with current productivity/task-management best practices. Select at most 3-5 approaches that seem genuinely useful right now. Recommend only the ones that fit this user\'s data and can be implemented inside TickTick. If you could not research, say so explicitly.',
+        format: 'Format: Approach | Match/mismatch in this data | Why it fits / why it is unnecessary | How to apply it in TickTick',
+      },
+      {
         title: 'Action Plan',
         desc: 'Turn your full analysis into concrete steps. Each step must be doable within TickTick and specify which menu/feature to use.',
         format: 'Format: 3 groups (Immediate — this week | Short-term — this month | Long-term — habits), max 5 items per group',
       },
     ],
-    requestOutro: `Be bold and direct. Say what the data says — don't soften the truth to be polite. Don't hesitate to simplify unnecessary structures or remove unused elements. Use frameworks like GTD, Eisenhower matrix, or PARA where appropriate, but don't be bound by them.`,
+    requestOutro: `Be bold and direct. Say what the data says — don't soften the truth to be polite. Don't hesitate to simplify unnecessary structures or remove unused elements. Use frameworks like GTD, Eisenhower matrix, or PARA where appropriate, but don't be bound by them. End with a short "Sources" section: if you used external research, list only the few sources or links you actually relied on; if you did not, briefly state that no external research was performed.`,
   },
 };
