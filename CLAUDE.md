@@ -5,7 +5,7 @@ A client-side web application that analyzes TickTick backup CSV files and genera
 1. A visual insight dashboard showing usage statistics
 2. An AI-optimized prompt (TR/EN) summarizing the data for productivity analysis
 
-**Zero backend. Zero data storage. Privacy-first.**
+**Zero backend. Local browser storage only. Privacy-first.**
 
 ## Tech Stack
 - HTML/CSS/JS (ES Modules) with Tailwind CSS (CDN)
@@ -38,7 +38,7 @@ js/utils.js             - Sanitization, date formatting, helpers
 ## Security Rules (CRITICAL)
 1. **No innerHTML with user data** - Always use `textContent` or `createTextNode()`
 2. **No external requests** - No fetch(), XMLHttpRequest, WebSocket
-3. **No storage** - No localStorage, sessionStorage, cookies
+3. **Local-only storage** - Theme, UI language, and recent-file metadata use localStorage; CSV content uses IndexedDB; no cookies
 4. **CSP enforced** - Content-Security-Policy meta tag in HTML
 5. **File validation** - Check extension, size, and header format
 6. **CSV files in .gitignore** - Never commit user data
