@@ -3,6 +3,13 @@
  * SECURITY: All user data must go through safe DOM methods (textContent, createTextNode).
  */
 
+function getCurrentLang() {
+  if (typeof document !== 'undefined' && document.documentElement?.lang === 'tr') {
+    return 'tr';
+  }
+  return 'en';
+}
+
 /**
  * Format a date string or Date object to a readable locale string.
  * @param {string|Date} dateInput - ISO 8601 date string or Date object
@@ -122,8 +129,11 @@ export function formatPercent(value) {
  * @returns {string}
  */
 export function priorityLabel(priority) {
-  const labels = { 0: 'None', 1: 'Low', 3: 'Medium', 5: 'High' };
-  return labels[priority] || 'None';
+  const isTurkish = getCurrentLang() === 'tr';
+  const labels = isTurkish
+    ? { 0: 'Yok', 1: 'Düşük', 3: 'Orta', 5: 'Yüksek' }
+    : { 0: 'None', 1: 'Low', 3: 'Medium', 5: 'High' };
+  return labels[priority] || (isTurkish ? 'Yok' : 'None');
 }
 
 /**
@@ -142,6 +152,13 @@ export function priorityClass(priority) {
  * @returns {string}
  */
 export function statusLabel(status) {
+  if (getCurrentLang() === 'tr') {
+    if (status === 0) return 'Bekleyen';
+    if (status === 1 || status === 2) return 'Tamamlanan';
+    if (status === -1) return 'Silinen';
+    return 'Bilinmiyor';
+  }
+
   if (status === 0) return 'Pending';
   if (status === 1 || status === 2) return 'Completed';
   if (status === -1) return 'Deleted';

@@ -50,6 +50,14 @@ js/utils.js             - Sanitization, date formatting, helpers
 - Documentation: English first, then Turkish
 - CSS-only visualizations (no chart libraries)
 
+## Versioning Rules
+- App version source of truth: `js/version.js`
+- Version format: SemVer patch
+- Initial version: `0.1.0`
+- After every completed repo change, increment the patch version by 1 in `js/version.js` (example: `0.1.0` -> `0.1.1`)
+- No task is complete unless the version bump is included in the same change set
+- The footer must display the current version from `js/version.js` in `vX.Y.Z` format
+
 ## How to Test Locally
 ```bash
 python3 -m http.server 8080

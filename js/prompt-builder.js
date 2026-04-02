@@ -7,20 +7,103 @@
 
 import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js';
 
+const DEFAULT_CONTEXT = {
+  users: 'solo',
+  useCases: ['software_projects'],
+  painPoints: ['clutter', 'stalled'],
+  optimize: ['structure', 'workflow'],
+  style: 'direct',
+};
+
+function normalizeContext(context = {}) {
+  return {
+    users: context.users || DEFAULT_CONTEXT.users,
+    useCases: Array.isArray(context.useCases) && context.useCases.length > 0 ? context.useCases : DEFAULT_CONTEXT.useCases,
+    painPoints: Array.isArray(context.painPoints) && context.painPoints.length > 0 ? context.painPoints : DEFAULT_CONTEXT.painPoints,
+    optimize: Array.isArray(context.optimize) && context.optimize.length > 0 ? context.optimize : DEFAULT_CONTEXT.optimize,
+    style: context.style || DEFAULT_CONTEXT.style,
+  };
+}
+
+function localizeContextAnswer(questionKey, values, t) {
+  const selectedValues = Array.isArray(values) ? values : [values];
+  return selectedValues
+    .map((value) => t.contextOptionLabels[questionKey]?.[value] || value)
+    .join(', ');
+}
+
+function buildContextGuidance(context, t) {
+  const lines = [];
+
+  lines.push(t.contextGuidance.users[context.users]);
+
+  for (const value of context.useCases) {
+    lines.push(t.contextGuidance.useCases[value]);
+  }
+
+  for (const value of context.painPoints) {
+    lines.push(t.contextGuidance.painPoints[value]);
+  }
+
+  for (const value of context.optimize) {
+    lines.push(t.contextGuidance.optimize[value]);
+  }
+
+  lines.push(t.contextGuidance.style[context.style]);
+
+  return lines.filter(Boolean);
+}
+
+function getPriorityLabelForPrompt(priority, t) {
+  return t.priorityLabels[priority] || priorityLabel(priority);
+}
+
+function getFeatureLabel(featureName, t) {
+  return t.featureLabels[featureName] || featureName;
+}
+
+function getScoreLabel(score, t) {
+  return t.scoreLabels[score] || score.toUpperCase();
+}
+
+function localizeSpecialName(name, t) {
+  if (name === '(No Folder)') return t.noFolder;
+  if (name === '(No List)') return t.noList;
+  return name;
+}
+
 /**
  * Build the complete prompt string for the given language.
  * @param {Object} analysis - Analysis result from analyzer.js
  * @param {'tr'|'en'} lang - Language code
+ * @param {Object} context - Prompt context selections from UI
  * @returns {string} Complete prompt text
  */
-export function buildPrompt(analysis, lang = 'tr') {
+export function buildPrompt(analysis, lang = 'tr', context = DEFAULT_CONTEXT) {
   const t = translations[lang];
+  const normalizedContext = normalizeContext(context);
   const lines = [];
 
   // --- SANDWICH TOP: System instructions before data ---
   lines.push(t.header);
   lines.push('');
   lines.push(t.systemBlock);
+  lines.push('');
+
+  lines.push(`## ${t.userContextTitle}`);
+  lines.push(t.userContextIntro);
+  lines.push(`- ${t.contextQuestions.users}: ${localizeContextAnswer('users', normalizedContext.users, t)}`);
+  lines.push(`- ${t.contextQuestions.useCases}: ${localizeContextAnswer('useCases', normalizedContext.useCases, t)}`);
+  lines.push(`- ${t.contextQuestions.painPoints}: ${localizeContextAnswer('painPoints', normalizedContext.painPoints, t)}`);
+  lines.push(`- ${t.contextQuestions.optimize}: ${localizeContextAnswer('optimize', normalizedContext.optimize, t)}`);
+  lines.push(`- ${t.contextQuestions.style}: ${localizeContextAnswer('style', normalizedContext.style, t)}`);
+  lines.push('');
+
+  lines.push(`## ${t.calibrationTitle}`);
+  lines.push(t.calibrationIntro);
+  for (const guidance of buildContextGuidance(normalizedContext, t)) {
+    lines.push(`- ${guidance}`);
+  }
   lines.push('');
 
   // --- DATA SECTION ---
@@ -49,16 +132,16 @@ export function buildPrompt(analysis, lang = 'tr') {
   // Feature usage
   lines.push(`## ${t.featureUsage}`);
   for (const feature of analysis.featureUsage) {
-    lines.push(`- ${feature.name}: ${formatPercent(feature.percent)} (${feature.usage}/${analysis.summary.total}) — ${t.score}: ${feature.score.toUpperCase()}`);
+    lines.push(`- ${getFeatureLabel(feature.name, t)}: ${formatPercent(feature.percent)} (${feature.usage}/${analysis.summary.total}) — ${t.score}: ${getScoreLabel(feature.score, t)}`);
   }
   lines.push('');
 
   // Folder & List structure
   lines.push(`## ${t.folderListStructure}`);
   for (const folder of analysis.folders) {
-    lines.push(`\n### ${folder.name} (${folder.total} ${t.tasks})`);
+    lines.push(`\n### ${localizeSpecialName(folder.name, t)} (${folder.total} ${t.tasks})`);
     for (const list of folder.lists) {
-      lines.push(`  - ${list.name}: ${list.total} ${t.total}, ${list.completed}✓, ${list.pending} ${t.pendingLabel}, ${formatPercent(list.completionRate)}`);
+      lines.push(`  - ${localizeSpecialName(list.name, t)}: ${list.total} ${t.total}, ${list.completed}✓, ${list.pending} ${t.pendingLabel}, ${formatPercent(list.completionRate)}`);
     }
   }
   lines.push('');
@@ -67,7 +150,7 @@ export function buildPrompt(analysis, lang = 'tr') {
   if (analysis.tags.length > 0) {
     lines.push(`## ${t.tags}`);
     for (const tag of analysis.tags) {
-      lines.push(`- "${tag.name}": ${tag.total} ${t.tasks}, ${formatPercent(tag.completionRate)} ${t.completionRate} — ${t.usedIn}: ${tag.lists.join(', ')}`);
+      lines.push(`- "${tag.name}": ${tag.total} ${t.tasks}, ${formatPercent(tag.completionRate)} ${t.completionRate} — ${t.usedIn}: ${tag.lists.map((listName) => localizeSpecialName(listName, t)).join(', ')}`);
     }
     lines.push('');
   }
@@ -78,12 +161,12 @@ export function buildPrompt(analysis, lang = 'tr') {
     for (const list of folder.lists) {
       if (list.pendingTasks.length === 0 && list.completedTasks.length === 0) continue;
 
-      lines.push(`\n### ${list.name}`);
+      lines.push(`\n### ${localizeSpecialName(list.name, t)}`);
 
       if (list.pendingTasks.length > 0) {
         lines.push(`\n**${t.latestPending} (${list.pendingTasks.length}):**`);
         for (const task of list.pendingTasks) {
-          const prio = task.priority > 0 ? ` [${priorityLabel(task.priority)}]` : '';
+          const prio = task.priority > 0 ? ` [${getPriorityLabelForPrompt(task.priority, t)}]` : '';
           const date = task.createdTime ? ` (${formatDate(task.createdTime)})` : '';
           lines.push(`  - ${truncate(task.title, 50)}${prio}${date}`);
         }
@@ -107,15 +190,15 @@ export function buildPrompt(analysis, lang = 'tr') {
     lines.push(`- ${t.avgCompletion}: ${ins.avgCompletionDays.toFixed(1)} ${t.days}`);
   }
   if (ins.busiestList) {
-    lines.push(`- ${t.busiestList}: ${ins.busiestList.name} (${ins.busiestList.total} ${t.tasks})`);
+    lines.push(`- ${t.busiestList}: ${localizeSpecialName(ins.busiestList.name, t)} (${ins.busiestList.total} ${t.tasks})`);
   }
   if (ins.mostNeglectedList) {
-    lines.push(`- ${t.neglectedList}: ${ins.mostNeglectedList.name} (${formatPercent(ins.mostNeglectedList.completionRate)})`);
+    lines.push(`- ${t.neglectedList}: ${localizeSpecialName(ins.mostNeglectedList.name, t)} (${formatPercent(ins.mostNeglectedList.completionRate)})`);
   }
   if (ins.oldestPendingTasks.length > 0) {
     lines.push(`- ${t.oldestPending}:`);
     for (const task of ins.oldestPendingTasks) {
-      lines.push(`  - "${truncate(task.title, 60)}" — ${task.listName} (${formatDate(task.createdTime)})`);
+      lines.push(`  - "${truncate(task.title, 60)}" — ${localizeSpecialName(task.listName, t)} (${formatDate(task.createdTime)})`);
     }
   }
   lines.push('');
@@ -163,7 +246,7 @@ export function buildPrompt(analysis, lang = 'tr') {
 const translations = {
   tr: {
     header: '# TickTick Kullanım Analiz Raporu',
-    systemBlock: `> **Rol:** TickTick uzmanı ve kişisel verimlilik danışmanısın. GTD, Eisenhower matrisi, PARA metodu, Time Blocking gibi çerçeveleri biliyorsun. Davranışsal psikoloji perspektifinden erteleme, aşırı yüklenme ve terk etme pattern'lerini tanıyorsun. Veriye dayalı, kanıta dayalı çıkarımlar yaparsın — spekülatif değil.
+    systemBlock: `> **Rol:** TickTick uzmanı, kişisel verimlilik danışmanı ve görev sistemi tasarımcısısın. GTD, Eisenhower matrisi, PARA metodu, Time Blocking gibi çerçeveleri biliyorsun. Davranışsal psikoloji perspektifinden erteleme, aşırı yüklenme ve terk etme pattern'lerini tanıyorsun. Veriye dayalı, kanıta dayalı çıkarımlar yaparsın — spekülatif değil.
 >
 > **Kurallar:**
 > - Verileri tekrar etme, yorumla. Sayıları zaten görebiliyorum — bana ne anlama geldiklerini söyle.
@@ -171,7 +254,78 @@ const translations = {
 > - Her liste/etiket için şablon cümle kullanma — her birini gerçekten verideki davranışa göre değerlendir.
 > - Tüm öneriler yalnızca TickTick içinde uygulanabilir olmalı. Başka uygulama veya araç önerme.
 > - Bir kavram veya metodolojiden bahsettiğinde kısaca ne olduğunu açıkla.
+> - Kullanıcının açıkça verdiği bağlam veriden çıkarım yapmaktan daha güvenilirdir. Çelişki varsa açık bağlamı önceliklendir.
+> - Yanıtını bu prompt ile aynı dilde ver.
 > - Yanıtına kullanıcı profili tahminiyle başla: liste adları, görev türleri ve kullanım pattern'lerinden bu kişinin kim olabileceğini (öğrenci, profesyonel, freelancer, vb.) ve hangi yaşam alanlarında TickTick kullandığını çıkar.`,
+    userContextTitle: 'Kullanıcının Verdiği Bağlam',
+    userContextIntro: 'Aşağıdaki bilgiler kullanıcı tarafından açıkça seçildi. Veriler belirsiz olduğunda bu bağlamı doğru kabul et ve analizini buna göre kalibre et.',
+    calibrationTitle: 'Bu Bağlama Göre Kalibrasyon',
+    calibrationIntro: 'Analizi aşağıdaki önceliklerle yap:',
+    contextQuestions: {
+      users: 'Kaç kişi kullanıyor?',
+      useCases: 'TickTick en çok ne için kullanılıyor?',
+      painPoints: 'Ana sorunlar neler?',
+      optimize: 'AI en çok neyi optimize etmeli?',
+      style: 'AI nasıl konuşmalı?',
+    },
+    contextOptionLabels: {
+      users: {
+        solo: 'Tek kişi',
+        team: 'Küçük ekip',
+        mixed: 'Karışık',
+      },
+      useCases: {
+        software_projects: 'Yazılım ve proje takibi',
+        general_work: 'Genel iş takibi',
+        personal_life: 'Kişisel hayat düzeni',
+      },
+      painPoints: {
+        clutter: 'Çok dağınık olması',
+        tracking: 'Takip edememek',
+        stalled: 'Çok dolu ama ilerlememesi',
+        priorities: 'Öncelikleri netleştirememek',
+      },
+      optimize: {
+        structure: 'Liste ve etiket yapısı',
+        prioritization: 'Görev önceliklendirmesi',
+        workflow: 'Günlük iş akışı',
+        visibility: 'Proje görünürlüğü',
+      },
+      style: {
+        direct: 'Net ve direkt',
+        balanced: 'Dengeli ve açıklayıcı',
+        conservative: 'Daha temkinli',
+      },
+    },
+    contextGuidance: {
+      users: {
+        solo: 'Bunu tek kişinin yönettiği bir sistem olarak değerlendir; ekip koordinasyonundan çok netlik, sadelik ve düşük bakım yüküne odaklan.',
+        team: 'Bunu küçük bir ekibin kullandığı sistem olarak değerlendir; sahiplik, görünürlük ve koordinasyon ihtiyacını dikkate al.',
+        mixed: 'Bunu hem tek kişi hem ekip kullanımı içeren karma bir sistem olarak değerlendir; yapı hem kişisel hız hem de ortak görünürlük sağlamalı.',
+      },
+      useCases: {
+        software_projects: 'Yazılım ve proje takibi kullanımını merkeze al; aktif projeler, backlog hijyeni, teslim takibi ve proje yapısının netliği kritik olsun.',
+        general_work: 'Genel iş takibini merkeze al; takip, son tarihler, operasyonel yük ve günlük yürütme akışına dikkat et.',
+        personal_life: 'Kişisel hayat düzenini merkeze al; düşük sürtünme, sürdürülebilirlik ve alışkanlık dostu yapı önemli olsun.',
+      },
+      painPoints: {
+        clutter: 'Dağınıklık ana problemse fazla liste, fazla etiket ve gereksiz yapı karmaşasını daha sert biçimde sorgula.',
+        tracking: 'Takip edememe ana problemse görünürlük, haftalık gözden geçirme ve aktif işlerin daha net görünmesini önceliklendir.',
+        stalled: 'Sistem dolu ama ilerlemiyorsa biriken backlog, terk edilmiş görevler ve harekete dönüşmeyen listeleri özellikle sorgula.',
+        priorities: 'Öncelikler net değilse öncelik seviyeleri, tarih kullanımı ve karar vermeyi zorlaştıran kalabalığı özellikle değerlendir.',
+      },
+      optimize: {
+        structure: 'Liste, klasör ve etiket mimarisine daha fazla dikkat ver; sadeleştirme ve yeniden yapılandırma önerilerini somutlaştır.',
+        prioritization: 'Önceliklendirme mantığına daha fazla dikkat ver; hangi görevlerin ne zaman ve neden öne çıkması gerektiğini netleştir.',
+        workflow: 'Günlük iş akışına daha fazla dikkat ver; inbox, triage, bugün görünümü ve yürütme ritmini optimize et.',
+        visibility: 'Proje görünürlüğüne daha fazla dikkat ver; hangi işlerin aktif, riskli veya beklemede olduğunu daha görünür hale getiren öneriler sun.',
+      },
+      style: {
+        direct: 'Tonun net ve direkt olsun; sorunları yumuşatma.',
+        balanced: 'Tonun dengeli olsun; doğrudan konuş ama kısa açıklamalarla gerekçelendir.',
+        conservative: 'Tonun daha temkinli olsun; faydalı mevcut alışkanlıkları koruyup minimum gerekli değişimi öner.',
+      },
+    },
     overview: 'Genel Bakış',
     totalTasks: 'Toplam görev',
     completed: 'Tamamlanan',
@@ -185,6 +339,27 @@ const translations = {
     priorityNone: 'Yok',
     featureUsage: 'Özellik Kullanım Oranları',
     score: 'Skor',
+    scoreLabels: {
+      low: 'DÜŞÜK',
+      medium: 'ORTA',
+      good: 'İYİ',
+    },
+    priorityLabels: {
+      0: 'Yok',
+      1: 'Düşük',
+      3: 'Orta',
+      5: 'Yüksek',
+    },
+    featureLabels: {
+      Priority: 'Öncelik',
+      Tags: 'Etiketler',
+      Reminders: 'Hatırlatıcılar',
+      'Recurring Tasks': 'Tekrarlayan Görevler',
+      'Due Dates': 'Bitiş Tarihleri',
+      'Start Dates': 'Başlangıç Tarihleri',
+      Descriptions: 'Açıklamalar',
+      Subtasks: 'Alt Görevler',
+    },
     folderListStructure: 'Klasör ve Liste Yapısı',
     tasks: 'görev',
     total: 'toplam',
@@ -201,6 +376,8 @@ const translations = {
     busiestList: 'En yoğun liste',
     neglectedList: 'En ihmal edilen liste',
     oldestPending: 'En eski bekleyen görevler',
+    noFolder: '(Klasör yok)',
+    noList: '(Liste yok)',
     ticktickFeatures: 'TickTick Özellikleri Referansı',
     features: [
       { name: 'Smart Lists (Akıllı Listeler)', desc: 'Filtrelere göre otomatik görev toplayan sanal listeler (örn: "Bu hafta bitenler", "Yüksek öncelikli")' },
@@ -266,7 +443,7 @@ const translations = {
 
   en: {
     header: '# TickTick Usage Analysis Report',
-    systemBlock: `> **Role:** You are a TickTick expert and personal productivity consultant. You know frameworks like GTD, Eisenhower Matrix, PARA method, and Time Blocking. You recognize procrastination, overcommitment, and abandonment patterns from a behavioral psychology perspective. You make data-driven, evidence-based conclusions — not speculative ones.
+    systemBlock: `> **Role:** You are a TickTick expert, personal productivity consultant, and task-system designer. You know frameworks like GTD, Eisenhower Matrix, PARA method, and Time Blocking. You recognize procrastination, overcommitment, and abandonment patterns from a behavioral psychology perspective. You make data-driven, evidence-based conclusions — not speculative ones.
 >
 > **Rules:**
 > - Don't repeat the data back to me — interpret it. I can already see the numbers — tell me what they mean.
@@ -274,7 +451,78 @@ const translations = {
 > - Don't use template sentences for each list/tag — evaluate each one based on actual behavioral data.
 > - All recommendations must be actionable within TickTick only. Do not suggest other apps or tools.
 > - When you mention a concept or methodology, briefly explain what it is.
+> - Explicit user-provided context is more reliable than inferred context. If there is a conflict, prioritize the explicit context.
+> - Respond in the same language as this prompt.
 > - Start your response with a user profile inference: from the list names, task types, and usage patterns, infer who this person might be (student, professional, freelancer, etc.) and which life areas they use TickTick for.`,
+    userContextTitle: 'User-Provided Context',
+    userContextIntro: 'The following details were selected explicitly by the user. If the data is ambiguous, treat this context as true and calibrate your analysis around it.',
+    calibrationTitle: 'Calibration For This Context',
+    calibrationIntro: 'Use the following priorities while analyzing the data:',
+    contextQuestions: {
+      users: 'How many people use it?',
+      useCases: 'What is TickTick mainly used for?',
+      painPoints: 'What are the main problems?',
+      optimize: 'What should the AI optimize most?',
+      style: 'How should the AI speak?',
+    },
+    contextOptionLabels: {
+      users: {
+        solo: 'Solo',
+        team: 'Small team',
+        mixed: 'Mixed',
+      },
+      useCases: {
+        software_projects: 'Software and project tracking',
+        general_work: 'General work tracking',
+        personal_life: 'Personal life organization',
+      },
+      painPoints: {
+        clutter: 'It feels too cluttered',
+        tracking: 'I lose track of things',
+        stalled: 'It is full but not moving',
+        priorities: 'Priorities are unclear',
+      },
+      optimize: {
+        structure: 'List and tag structure',
+        prioritization: 'Task prioritization',
+        workflow: 'Daily workflow',
+        visibility: 'Project visibility',
+      },
+      style: {
+        direct: 'Direct and clear',
+        balanced: 'Balanced and explanatory',
+        conservative: 'More cautious',
+      },
+    },
+    contextGuidance: {
+      users: {
+        solo: 'Treat this as a solo-managed system; optimize for clarity, simplicity, and low maintenance overhead rather than team coordination.',
+        team: 'Treat this as a small-team system; consider ownership, visibility, and coordination needs.',
+        mixed: 'Treat this as a mixed solo-plus-team system; the structure should support both personal speed and shared visibility.',
+      },
+      useCases: {
+        software_projects: 'Center the analysis on software and project tracking; active projects, backlog hygiene, delivery flow, and structural clarity are critical.',
+        general_work: 'Center the analysis on general work tracking; pay close attention to follow-through, deadlines, operational load, and day-to-day execution.',
+        personal_life: 'Center the analysis on personal-life organization; low friction, sustainability, and habit-friendly structure matter most.',
+      },
+      painPoints: {
+        clutter: 'If clutter is a main problem, challenge excessive lists, excessive tags, and unnecessary structural complexity more aggressively.',
+        tracking: 'If tracking is a main problem, prioritize visibility, review rhythm, and making active work easier to see.',
+        stalled: 'If the system is full but not moving, focus especially on backlog buildup, abandoned tasks, and lists that are not turning into action.',
+        priorities: 'If priorities are unclear, focus especially on priority usage, date discipline, and structural clutter that makes decisions harder.',
+      },
+      optimize: {
+        structure: 'Spend more attention on list, folder, and tag architecture; make simplification and restructuring recommendations concrete.',
+        prioritization: 'Spend more attention on prioritization logic; clarify which tasks should rise to the top, when, and why.',
+        workflow: 'Spend more attention on daily workflow; optimize inbox triage, today-view behavior, and execution rhythm.',
+        visibility: 'Spend more attention on project visibility; suggest ways to make active, risky, and blocked work easier to see.',
+      },
+      style: {
+        direct: 'Use a direct tone; do not soften problems.',
+        balanced: 'Use a balanced tone; be direct, but explain the reasoning briefly.',
+        conservative: 'Use a more cautious tone; preserve useful existing habits and recommend only the minimum necessary change.',
+      },
+    },
     overview: 'Overview',
     totalTasks: 'Total tasks',
     completed: 'Completed',
@@ -288,6 +536,27 @@ const translations = {
     priorityNone: 'None',
     featureUsage: 'Feature Usage Rates',
     score: 'Score',
+    scoreLabels: {
+      low: 'LOW',
+      medium: 'MEDIUM',
+      good: 'GOOD',
+    },
+    priorityLabels: {
+      0: 'None',
+      1: 'Low',
+      3: 'Medium',
+      5: 'High',
+    },
+    featureLabels: {
+      Priority: 'Priority',
+      Tags: 'Tags',
+      Reminders: 'Reminders',
+      'Recurring Tasks': 'Recurring Tasks',
+      'Due Dates': 'Due Dates',
+      'Start Dates': 'Start Dates',
+      Descriptions: 'Descriptions',
+      Subtasks: 'Subtasks',
+    },
     folderListStructure: 'Folder & List Structure',
     tasks: 'tasks',
     total: 'total',
@@ -304,6 +573,8 @@ const translations = {
     busiestList: 'Busiest list',
     neglectedList: 'Most neglected list',
     oldestPending: 'Oldest pending tasks',
+    noFolder: '(No Folder)',
+    noList: '(No List)',
     ticktickFeatures: 'TickTick Features Reference',
     features: [
       { name: 'Smart Lists', desc: 'Virtual lists that automatically collect tasks based on filters (e.g., "Due this week", "High priority")' },

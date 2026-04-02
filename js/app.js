@@ -11,14 +11,80 @@ import { renderDashboard } from './dashboard.js';
 import { buildPrompt } from './prompt-builder.js';
 import { setUILang, getUILang, t } from './i18n.js';
 import { createEl } from './utils.js';
+import { APP_VERSION } from './version.js';
 
 // Initialize Lucide icons
 if (window.lucide) lucide.createIcons();
 
+const PROMPT_CONTEXT_QUESTIONS = [
+  {
+    id: 'users',
+    type: 'single',
+    labelKey: 'promptCtxUsersQ',
+    options: [
+      { value: 'solo', labelKey: 'promptCtxUsersSolo' },
+      { value: 'team', labelKey: 'promptCtxUsersTeam' },
+      { value: 'mixed', labelKey: 'promptCtxUsersMixed' },
+    ],
+  },
+  {
+    id: 'useCases',
+    type: 'multi',
+    labelKey: 'promptCtxUseCasesQ',
+    options: [
+      { value: 'software_projects', labelKey: 'promptCtxUseCasesSoftware' },
+      { value: 'general_work', labelKey: 'promptCtxUseCasesWork' },
+      { value: 'personal_life', labelKey: 'promptCtxUseCasesPersonal' },
+    ],
+  },
+  {
+    id: 'painPoints',
+    type: 'multi',
+    labelKey: 'promptCtxProblemsQ',
+    options: [
+      { value: 'clutter', labelKey: 'promptCtxProblemsClutter' },
+      { value: 'tracking', labelKey: 'promptCtxProblemsTracking' },
+      { value: 'stalled', labelKey: 'promptCtxProblemsStalled' },
+      { value: 'priorities', labelKey: 'promptCtxProblemsPriorities' },
+    ],
+  },
+  {
+    id: 'optimize',
+    type: 'multi',
+    labelKey: 'promptCtxOptimizeQ',
+    options: [
+      { value: 'structure', labelKey: 'promptCtxOptimizeStructure' },
+      { value: 'prioritization', labelKey: 'promptCtxOptimizePrioritization' },
+      { value: 'workflow', labelKey: 'promptCtxOptimizeWorkflow' },
+      { value: 'visibility', labelKey: 'promptCtxOptimizeVisibility' },
+    ],
+  },
+  {
+    id: 'style',
+    type: 'single',
+    labelKey: 'promptCtxStyleQ',
+    options: [
+      { value: 'direct', labelKey: 'promptCtxStyleDirect' },
+      { value: 'balanced', labelKey: 'promptCtxStyleBalanced' },
+      { value: 'conservative', labelKey: 'promptCtxStyleConservative' },
+    ],
+  },
+];
+
+function createDefaultPromptContext() {
+  return {
+    users: 'solo',
+    useCases: ['software_projects'],
+    painPoints: ['clutter', 'stalled'],
+    optimize: ['structure', 'workflow'],
+    style: 'direct',
+  };
+}
+
 // State
 let currentAnalysis = null;
 let promptCache = { tr: '', en: '' };
-let currentPromptLang = 'tr';
+let promptContext = createDefaultPromptContext();
 
 // DOM references
 const screenUpload = document.getElementById('screen-upload');
@@ -30,22 +96,136 @@ const fileInput = document.getElementById('file-input');
 const uploadError = document.getElementById('upload-error');
 const dashboardContainer = document.getElementById('dashboard-container');
 const promptSection = document.getElementById('prompt-section');
+const promptContextControls = document.getElementById('prompt-context-controls');
 const promptOutput = document.getElementById('prompt-output');
 const btnCopy = document.getElementById('btn-copy');
 const btnNewFile = document.getElementById('btn-new-file');
 const copyFeedback = document.getElementById('copy-feedback');
 const themeToggle = document.getElementById('theme-toggle');
-const promptLangBtns = document.querySelectorAll('.prompt-lang-btn');
 const uiLangBtns = document.querySelectorAll('.ui-lang-btn');
 const recentFilesContainer = document.getElementById('recent-files');
 const recentFilesList = document.getElementById('recent-files-list');
 const btnClearRecent = document.getElementById('btn-clear-recent');
+const appVersion = document.getElementById('app-version');
+let copyFeedbackTimer = null;
 
 // Recent files — metadata in localStorage, CSV content in IndexedDB
 const RECENT_FILES_KEY = 'ticktick-recent-files';
 const MAX_RECENT_FILES = 5;
 const IDB_NAME = 'ticktick-insights';
 const IDB_STORE = 'csv-files';
+
+function getQuestionById(questionId) {
+  return PROMPT_CONTEXT_QUESTIONS.find((question) => question.id === questionId);
+}
+
+function getOrderedMultiValue(question, values) {
+  const currentValues = new Set(Array.isArray(values) ? values : []);
+  return question.options
+    .map((option) => option.value)
+    .filter((value) => currentValues.has(value));
+}
+
+function isOptionSelected(question, optionValue) {
+  const value = promptContext[question.id];
+  return question.type === 'multi'
+    ? Array.isArray(value) && value.includes(optionValue)
+    : value === optionValue;
+}
+
+function syncPromptOutput() {
+  promptOutput.value = promptCache[getUILang()] || '';
+}
+
+function rebuildPromptCache() {
+  if (!currentAnalysis) return;
+  const lang = getUILang();
+  const otherLang = lang === 'tr' ? 'en' : 'tr';
+  promptCache[lang] = buildPrompt(currentAnalysis, lang, promptContext);
+  promptCache[otherLang] = '';
+}
+
+function refreshPromptFromState() {
+  if (!currentAnalysis) return;
+  rebuildPromptCache();
+  syncPromptOutput();
+}
+
+function updatePromptContext(questionId, optionValue) {
+  const question = getQuestionById(questionId);
+  if (!question) return;
+
+  if (question.type === 'single') {
+    promptContext = { ...promptContext, [questionId]: optionValue };
+  } else {
+    const currentValues = getOrderedMultiValue(question, promptContext[questionId]);
+    const isSelected = currentValues.includes(optionValue);
+
+    if (isSelected && currentValues.length === 1) return;
+
+    const nextValues = isSelected
+      ? currentValues.filter((value) => value !== optionValue)
+      : question.options
+        .map((option) => option.value)
+        .filter((value) => value === optionValue || currentValues.includes(value));
+
+    promptContext = { ...promptContext, [questionId]: nextValues };
+  }
+
+  renderPromptContextControls();
+  refreshPromptFromState();
+}
+
+function createContextOptionButton(question, option) {
+  const selected = isOptionSelected(question, option.value);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = [
+    'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+    selected
+      ? 'bg-teal-600 text-white border-teal-600 dark:bg-teal-600 dark:text-white dark:border-teal-500'
+      : 'bg-white text-gray-600 border-gray-200 hover:border-teal-300 hover:text-teal-700 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-700 dark:hover:border-teal-600 dark:hover:text-teal-300',
+  ].join(' ');
+  btn.textContent = t(option.labelKey);
+  btn.setAttribute('aria-pressed', String(selected));
+  btn.addEventListener('click', () => updatePromptContext(question.id, option.value));
+  return btn;
+}
+
+function renderPromptContextControls() {
+  if (!promptContextControls) return;
+
+  promptContextControls.textContent = '';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4';
+
+  wrapper.appendChild(createEl('h4', t('promptContextHeading'), 'text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1'));
+  wrapper.appendChild(createEl('p', t('promptContextDesc'), 'text-xs text-gray-500 dark:text-gray-400 leading-relaxed mb-4'));
+
+  const list = document.createElement('div');
+  list.className = 'space-y-3';
+
+  for (const question of PROMPT_CONTEXT_QUESTIONS) {
+    const item = document.createElement('div');
+    item.className = 'space-y-2';
+
+    item.appendChild(createEl('p', t(question.labelKey), 'text-xs font-medium text-gray-700 dark:text-gray-300'));
+
+    const options = document.createElement('div');
+    options.className = 'flex flex-wrap gap-2';
+
+    for (const option of question.options) {
+      options.appendChild(createContextOptionButton(question, option));
+    }
+
+    item.appendChild(options);
+    list.appendChild(item);
+  }
+
+  wrapper.appendChild(list);
+  promptContextControls.appendChild(wrapper);
+}
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -138,6 +318,11 @@ async function loadRecentFile(name) {
     return;
   }
   processCSVText(csvText);
+}
+
+function renderAppVersion() {
+  if (!appVersion) return;
+  appVersion.textContent = `v${APP_VERSION}`;
 }
 
 function formatFileSize(bytes) {
@@ -237,10 +422,10 @@ function refreshResultsIfVisible() {
   document.body.appendChild(promptSection);
   renderDashboard(currentAnalysis, dashboardContainer);
   insertPromptInDashboard();
+  renderPromptContextControls();
   if (window.lucide) lucide.createIcons();
-  promptCache.tr = buildPrompt(currentAnalysis, 'tr');
-  promptCache.en = buildPrompt(currentAnalysis, 'en');
-  promptOutput.value = promptCache[currentPromptLang];
+  rebuildPromptCache();
+  syncPromptOutput();
 }
 
 // Shared CSV processing — used by both file upload and recent file load
@@ -254,14 +439,14 @@ function processCSVText(rawText, fileName, fileSize) {
     currentAnalysis = analyze(parsed.tasks);
 
     processingText.textContent = t('generating');
-    promptCache.tr = buildPrompt(currentAnalysis, 'tr');
-    promptCache.en = buildPrompt(currentAnalysis, 'en');
+    rebuildPromptCache();
 
     processingText.textContent = t('rendering');
     renderDashboard(currentAnalysis, dashboardContainer);
     insertPromptInDashboard();
+    renderPromptContextControls();
     if (window.lucide) lucide.createIcons();
-    promptOutput.value = promptCache[currentPromptLang];
+    syncPromptOutput();
 
     if (fileName) saveRecentFile(fileName, fileSize, rawText);
     showScreen(screenResults);
@@ -326,18 +511,6 @@ fileInput.addEventListener('change', () => {
   if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
 });
 
-// Prompt language toggle
-for (const btn of promptLangBtns) {
-  btn.addEventListener('click', () => {
-    currentPromptLang = btn.dataset.lang;
-    for (const b of promptLangBtns) b.classList.remove('active');
-    btn.classList.add('active');
-    if (promptCache[currentPromptLang]) {
-      promptOutput.value = promptCache[currentPromptLang];
-    }
-  });
-}
-
 // UI language toggle — sync active button with initial language
 const initialLang = window.__initialLang || 'en';
 for (const b of uiLangBtns) {
@@ -360,7 +533,11 @@ for (const btn of uiLangBtns) {
     }
     history.replaceState(null, '', url);
 
-    refreshResultsIfVisible();
+    if (currentAnalysis) {
+      refreshResultsIfVisible();
+    } else {
+      renderPromptContextControls();
+    }
   });
 }
 
@@ -403,9 +580,25 @@ async function copyPromptToClipboard() {
     promptOutput.select();
     document.execCommand('copy');
   }
+
+  btnCopy.classList.remove('copy-success');
+  copyFeedback.classList.remove('copy-visible');
+  void btnCopy.offsetWidth;
+  void copyFeedback.offsetWidth;
+  btnCopy.classList.add('copy-success');
   copyFeedback.hidden = false;
   copyFeedback.textContent = t('copied');
-  setTimeout(() => { copyFeedback.hidden = true; }, 2000);
+  copyFeedback.classList.add('copy-visible');
+
+  if (copyFeedbackTimer) {
+    clearTimeout(copyFeedbackTimer);
+  }
+
+  copyFeedbackTimer = setTimeout(() => {
+    copyFeedback.hidden = true;
+    copyFeedback.classList.remove('copy-visible');
+    btnCopy.classList.remove('copy-success');
+  }, 2000);
 }
 
 // Copy to clipboard button
@@ -440,4 +633,6 @@ document.getElementById('btn-logo').addEventListener('click', resetToUpload);
 btnClearRecent.addEventListener('click', clearRecentFiles);
 
 // Initial render of recent files on page load
+renderAppVersion();
 renderRecentFiles();
+renderPromptContextControls();
