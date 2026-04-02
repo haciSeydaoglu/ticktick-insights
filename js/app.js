@@ -53,7 +53,8 @@ const PROMPT_CONTEXT_QUESTIONS = [
     type: 'multi',
     labelKey: 'promptCtxOptimizeQ',
     options: [
-      { value: 'structure', labelKey: 'promptCtxOptimizeStructure' },
+      { value: 'list_structure', labelKey: 'promptCtxOptimizeListStructure' },
+      { value: 'tag_structure', labelKey: 'promptCtxOptimizeTagStructure' },
       { value: 'prioritization', labelKey: 'promptCtxOptimizePrioritization' },
       { value: 'workflow', labelKey: 'promptCtxOptimizeWorkflow' },
       { value: 'visibility', labelKey: 'promptCtxOptimizeVisibility' },
@@ -83,8 +84,10 @@ function createDefaultPromptContext() {
     users: 'solo',
     useCases: ['software_projects'],
     painPoints: ['clutter', 'stalled'],
-    optimize: ['structure', 'workflow'],
+    optimize: ['list_structure', 'tag_structure', 'workflow'],
     style: 'direct',
+    taskLimit: 7,
+    customPriorityMapping: false,
   };
 }
 
@@ -97,8 +100,13 @@ function createEmptyPromptCache() {
 
 function normalizePromptContext(context) {
   const defaults = createDefaultPromptContext();
-  const source = context && typeof context === 'object' ? context : {};
+  const source = context && typeof context === 'object' ? { ...context } : {};
   const normalized = {};
+
+  // Migrate old "structure" value to split options
+  if (Array.isArray(source.optimize) && source.optimize.includes('structure')) {
+    source.optimize = source.optimize.flatMap((v) => (v === 'structure' ? ['list_structure', 'tag_structure'] : [v]));
+  }
 
   for (const question of PROMPT_CONTEXT_QUESTIONS) {
     const fallbackValue = defaults[question.id];
@@ -113,6 +121,11 @@ function normalizePromptContext(context) {
     const nextValues = getOrderedMultiValue(question, Array.isArray(rawValue) ? rawValue : []);
     normalized[question.id] = nextValues.length > 0 ? nextValues : fallbackValue;
   }
+
+  // Extra fields outside PROMPT_CONTEXT_QUESTIONS
+  const rawLimit = source.taskLimit;
+  normalized.taskLimit = (Number.isInteger(rawLimit) && rawLimit >= 3 && rawLimit <= 20) ? rawLimit : defaults.taskLimit;
+  normalized.customPriorityMapping = source.customPriorityMapping === true;
 
   return normalized;
 }
@@ -192,7 +205,7 @@ function rebuildPromptCache() {
   const lang = getUILang();
   const otherLang = lang === 'tr' ? 'en' : 'tr';
   promptCache.full[lang] = buildPrompt(currentAnalysis, lang, promptContext);
-  promptCache.raw[lang] = buildPromptData(currentAnalysis, lang);
+  promptCache.raw[lang] = buildPromptData(currentAnalysis, lang, promptContext);
   promptCache.full[otherLang] = '';
   promptCache.raw[otherLang] = '';
 }
@@ -330,6 +343,58 @@ function renderPromptContextControls() {
   }
 
   wrapper.appendChild(list);
+
+  // Separator
+  const separator = document.createElement('div');
+  separator.className = 'border-t border-gray-100 dark:border-gray-800 mt-4 pt-4 space-y-3';
+
+  // Task limit stepper
+  const taskLimitRow = document.createElement('div');
+  taskLimitRow.className = 'flex items-center gap-3';
+
+  taskLimitRow.appendChild(createEl('span', t('promptCtxTaskLimit'), 'text-xs font-medium text-gray-700 dark:text-gray-300'));
+
+  const taskLimitInput = document.createElement('input');
+  taskLimitInput.type = 'number';
+  taskLimitInput.min = '3';
+  taskLimitInput.max = '20';
+  taskLimitInput.step = '1';
+  taskLimitInput.value = String(promptContext.taskLimit || 7);
+  taskLimitInput.className = 'w-16 px-2 py-1 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:border-teal-400 focus:outline-none';
+  taskLimitInput.addEventListener('change', () => {
+    const value = parseInt(taskLimitInput.value, 10);
+    if (Number.isInteger(value) && value >= 3 && value <= 20) {
+      promptContext = { ...promptContext, taskLimit: value };
+      savePromptContext(promptContext);
+      refreshPromptFromState();
+    } else {
+      taskLimitInput.value = String(promptContext.taskLimit || 7);
+    }
+  });
+
+  taskLimitRow.appendChild(taskLimitInput);
+  separator.appendChild(taskLimitRow);
+
+  // Custom priority mapping checkbox
+  const priorityRow = document.createElement('label');
+  priorityRow.className = 'flex items-start gap-2 cursor-pointer';
+
+  const priorityCheckbox = document.createElement('input');
+  priorityCheckbox.type = 'checkbox';
+  priorityCheckbox.checked = promptContext.customPriorityMapping || false;
+  priorityCheckbox.className = 'mt-0.5 rounded border-gray-300 dark:border-gray-600 text-teal-600 focus:ring-teal-500';
+  priorityCheckbox.addEventListener('change', () => {
+    promptContext = { ...promptContext, customPriorityMapping: priorityCheckbox.checked };
+    savePromptContext(promptContext);
+    refreshPromptFromState();
+  });
+
+  priorityRow.appendChild(priorityCheckbox);
+  priorityRow.appendChild(createEl('span', t('promptCtxCustomPriority'), 'text-xs text-gray-600 dark:text-gray-400'));
+
+  separator.appendChild(priorityRow);
+  wrapper.appendChild(separator);
+
   promptContextControls.appendChild(wrapper);
 }
 

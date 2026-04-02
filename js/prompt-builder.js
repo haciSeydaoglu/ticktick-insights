@@ -11,17 +11,21 @@ const DEFAULT_CONTEXT = {
   users: 'solo',
   useCases: ['software_projects'],
   painPoints: ['clutter', 'stalled'],
-  optimize: ['structure', 'workflow'],
+  optimize: ['list_structure', 'tag_structure', 'workflow'],
   style: 'direct',
 };
 
 function normalizeContext(context = {}) {
+  const taskLimit = Number.isInteger(context.taskLimit) && context.taskLimit >= 3 && context.taskLimit <= 20
+    ? context.taskLimit : 7;
   return {
     users: context.users || DEFAULT_CONTEXT.users,
     useCases: Array.isArray(context.useCases) && context.useCases.length > 0 ? context.useCases : DEFAULT_CONTEXT.useCases,
     painPoints: Array.isArray(context.painPoints) && context.painPoints.length > 0 ? context.painPoints : DEFAULT_CONTEXT.painPoints,
     optimize: Array.isArray(context.optimize) && context.optimize.length > 0 ? context.optimize : DEFAULT_CONTEXT.optimize,
     style: context.style || DEFAULT_CONTEXT.style,
+    taskLimit,
+    customPriorityMapping: context.customPriorityMapping === true,
   };
 }
 
@@ -79,7 +83,9 @@ function localizeSpecialName(name, t) {
   return name;
 }
 
-function buildDataLines(analysis, t) {
+function buildDataLines(analysis, t, options = {}) {
+  const taskLimit = options.taskLimit || 7;
+  const customPriorityMapping = options.customPriorityMapping || false;
   const lines = [];
 
   // Summary section
@@ -108,6 +114,12 @@ function buildDataLines(analysis, t) {
   lines.push(`- ${t.priorityMedium}: ${formatPriorityBreakdownLine(analysis.priorityBreakdown[3], t)}`);
   lines.push(`- ${t.priorityLow}: ${formatPriorityBreakdownLine(analysis.priorityBreakdown[1], t)}`);
   lines.push(`- ${t.priorityNone}: ${formatPriorityBreakdownLine(analysis.priorityBreakdown[0], t)}`);
+
+  if (customPriorityMapping) {
+    lines.push('');
+    lines.push(t.customPriorityNote);
+  }
+
   lines.push('');
 
   // Feature usage
@@ -145,7 +157,7 @@ function buildDataLines(analysis, t) {
       lines.push(`\n### ${localizeSpecialName(list.name, t)}`);
 
       if (list.pendingTasks.length > 0) {
-        const shownPending = list.pendingTasks.slice(0, 5);
+        const shownPending = list.pendingTasks.slice(0, taskLimit);
         const morePending = list.pending - shownPending.length;
         lines.push(`\n**${t.latestPending}:**`);
         for (const task of shownPending) {
@@ -159,7 +171,7 @@ function buildDataLines(analysis, t) {
       }
 
       if (list.completedTasks.length > 0) {
-        const shownCompleted = list.completedTasks.slice(0, 5);
+        const shownCompleted = list.completedTasks.slice(0, taskLimit);
         const moreCompleted = list.completed - shownCompleted.length;
         lines.push(`\n**${t.latestCompleted}:**`);
         for (const task of shownCompleted) {
@@ -177,6 +189,7 @@ function buildDataLines(analysis, t) {
   // Recurring tasks
   if (analysis.recurring && analysis.recurring.distinctTaskCount > 0) {
     lines.push(`## ${t.routineTasks}`);
+    lines.push(t.routineDetectionNote);
     lines.push(`- ${t.routineTasksSummary}: ${analysis.recurring.distinctTaskCount} ${t.differentRoutines}, ${formatNumber(analysis.recurring.totalCompletions)} ${t.routineCompletions}`);
     lines.push('');
     for (const task of analysis.recurring.tasks) {
@@ -218,13 +231,16 @@ function buildTickTickFeatureLines(t) {
     lines.push(`- **${feat.name}**: ${feat.desc}`);
   }
   lines.push('');
+  lines.push(t.ticktickBackupLimitation);
+  lines.push('');
 
   return lines;
 }
 
-export function buildPromptData(analysis, lang = 'tr') {
+export function buildPromptData(analysis, lang = 'tr', context = {}) {
   const t = translations[lang] || translations.tr;
-  return buildDataLines(analysis, t).join('\n');
+  const normalized = normalizeContext(context);
+  return buildDataLines(analysis, t, { taskLimit: normalized.taskLimit, customPriorityMapping: normalized.customPriorityMapping }).join('\n');
 }
 
 /**
@@ -262,7 +278,7 @@ export function buildPrompt(analysis, lang = 'tr', context = DEFAULT_CONTEXT) {
   lines.push('');
 
   // --- DATA SECTION ---
-  lines.push(...buildDataLines(analysis, t));
+  lines.push(...buildDataLines(analysis, t, { taskLimit: normalizedContext.taskLimit, customPriorityMapping: normalizedContext.customPriorityMapping }));
 
   // Emoji suggestions for lists without emoji
   const listsWithoutEmoji = [];
@@ -367,7 +383,8 @@ const translations = {
         priorities: 'Öncelikleri netleştirememek',
       },
       optimize: {
-        structure: 'Liste ve etiket yapısı',
+        list_structure: 'Liste/klasör yapısı',
+        tag_structure: 'Etiket yapısı',
         prioritization: 'Görev önceliklendirmesi',
         workflow: 'Günlük iş akışı',
         visibility: 'Proje görünürlüğü',
@@ -396,7 +413,8 @@ const translations = {
         priorities: 'Öncelikler net değilse öncelik seviyeleri, tarih kullanımı ve karar vermeyi zorlaştıran kalabalığı özellikle değerlendir.',
       },
       optimize: {
-        structure: 'Liste, klasör ve etiket mimarisine daha fazla dikkat ver; sadeleştirme ve yeniden yapılandırma önerilerini somutlaştır.',
+        list_structure: 'Liste ve klasör mimarisine daha fazla dikkat ver; sadeleştirme ve yeniden yapılandırma önerilerini somutlaştır.',
+        tag_structure: 'Etiket yapısına daha fazla dikkat ver; gereksiz, çakışan veya eksik etiketleri belirle ve tutarlı bir etiketleme stratejisi öner.',
         prioritization: 'Önceliklendirme mantığına daha fazla dikkat ver; hangi görevlerin ne zaman ve neden öne çıkması gerektiğini netleştir.',
         workflow: 'Günlük iş akışına daha fazla dikkat ver; inbox, triage, bugün görünümü ve yürütme ritmini optimize et.',
         visibility: 'Proje görünürlüğüne daha fazla dikkat ver; hangi işlerin aktif, riskli veya beklemede olduğunu daha görünür hale getiren öneriler sun.',
@@ -462,14 +480,17 @@ const translations = {
     noFolder: '(Klasör yok)',
     noList: '(Liste yok)',
     routineTasks: 'Rutin Görevler (En Sık Tamamlananlar)',
+    routineDetectionNote: '> *Not: TickTick yedeği açık tekrar (repeat) bilgisi içermez. Bu görevler, aynı başlığın 3+ kez tamamlanmış olmasıyla sezgisel olarak tespit edilmiştir.*',
     routineTasksSummary: 'Özet',
     differentRoutines: 'farklı rutin',
     routineCompletions: 'rutin tamamlanma',
     uniqueCompletions: 'tekil tamamlanma',
     uniqueCompletionRate: 'tekil tamamlanma oranı',
+    customPriorityNote: '> **Kullanıcı notu:** Öncelik seviyelerini şu şekilde kullanıyorum: Yüksek = Sprint (bu hafta yapılacak), Orta = Next (sıradaki), Düşük = Backlog (ileride yapılacak), Yok = Triage (henüz sınıflandırılmamış). Analizini ve önerilerini bu kullanıma göre kalibre et.',
     emojiSuggestionsTitle: 'Liste Emoji Önerileri',
     emojiSuggestionsIntro: 'Aşağıdaki listeler için uygun bir emoji ve onu bulmak için kullanılabilecek İngilizce bir arama kelimesi öner:',
     emojiSuggestionsFormat: 'Format: Liste Adı | Önerilen Emoji | Search Keyword',
+    ticktickBackupLimitation: '> **Not:** TickTick yedek dosyası Habit Tracker (alışkanlık takibi) verilerini ve Filter (filtre) yapılandırmalarını içermez. Bu alanlar hakkında yorum yaparken bunu dikkate al.',
     ticktickFeatures: 'TickTick Özellikleri Referansı',
     features: [
       { name: 'Smart Lists (Akıllı Listeler)', desc: 'Filtrelere göre otomatik görev toplayan sanal listeler (örn: "Bu hafta bitenler", "Yüksek öncelikli")' },
@@ -587,7 +608,8 @@ const translations = {
         priorities: 'Priorities are unclear',
       },
       optimize: {
-        structure: 'List and tag structure',
+        list_structure: 'List/folder structure',
+        tag_structure: 'Tag structure',
         prioritization: 'Task prioritization',
         workflow: 'Daily workflow',
         visibility: 'Project visibility',
@@ -616,7 +638,8 @@ const translations = {
         priorities: 'If priorities are unclear, focus especially on priority usage, date discipline, and structural clutter that makes decisions harder.',
       },
       optimize: {
-        structure: 'Spend more attention on list, folder, and tag architecture; make simplification and restructuring recommendations concrete.',
+        list_structure: 'Spend more attention on list and folder architecture; make simplification and restructuring recommendations concrete.',
+        tag_structure: 'Spend more attention on tag architecture; identify redundant, overlapping, or missing tags and suggest a consistent tagging strategy.',
         prioritization: 'Spend more attention on prioritization logic; clarify which tasks should rise to the top, when, and why.',
         workflow: 'Spend more attention on daily workflow; optimize inbox triage, today-view behavior, and execution rhythm.',
         visibility: 'Spend more attention on project visibility; suggest ways to make active, risky, and blocked work easier to see.',
@@ -682,14 +705,17 @@ const translations = {
     noFolder: '(No Folder)',
     noList: '(No List)',
     routineTasks: 'Routine Tasks (Most Frequently Completed)',
+    routineDetectionNote: '> *Note: TickTick backup does not include explicit repeat data. These tasks were detected heuristically by finding the same title completed 3+ times.*',
     routineTasksSummary: 'Summary',
     differentRoutines: 'distinct routines',
     routineCompletions: 'routine completions',
     uniqueCompletions: 'one-off completions',
     uniqueCompletionRate: 'unique completion rate',
+    customPriorityNote: '> **User note:** I use priority levels as follows: High = Sprint (do this week), Medium = Next (up next), Low = Backlog (future), None = Triage (not yet classified). Calibrate your analysis and recommendations to this mapping.',
     emojiSuggestionsTitle: 'List Emoji Suggestions',
     emojiSuggestionsIntro: 'For each of the following lists, suggest an appropriate emoji and an English search keyword to find it:',
     emojiSuggestionsFormat: 'Format: List Name | Suggested Emoji | Search Keyword',
+    ticktickBackupLimitation: '> **Note:** The TickTick backup file does not include Habit Tracker data or Filter configurations. Keep this in mind when commenting on these areas.',
     ticktickFeatures: 'TickTick Features Reference',
     features: [
       { name: 'Smart Lists', desc: 'Virtual lists that automatically collect tasks based on filters (e.g., "Due this week", "High priority")' },
