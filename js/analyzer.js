@@ -51,6 +51,9 @@ export function analyze(tasks) {
   // For completion time calculation
   const completionDays = [];
 
+  // For recurring task detection: track completed tasks by normalized title
+  const completedTitleMap = new Map();
+
   // Single pass through all tasks
   for (const task of tasks) {
     summary.total++;
@@ -157,6 +160,28 @@ export function analyze(tasks) {
       const days = daysBetween(task.createdTime, task.completedTime);
       if (days >= 0) completionDays.push(days);
     }
+
+    // Recurring task detection: group completed tasks by normalized title
+    if (task.status === 'completed') {
+      const key = task.title.trim().toLowerCase();
+      if (key.length > 0) {
+        const existing = completedTitleMap.get(key);
+        if (existing) {
+          existing.count++;
+          if (!existing.lastCompleted || task.completedTime > existing.lastCompleted) {
+            existing.lastCompleted = task.completedTime;
+          }
+        } else {
+          completedTitleMap.set(key, {
+            title: task.title,
+            count: 1,
+            lastCompleted: task.completedTime || null,
+            folderName: task.folderName || '',
+            listName: task.listName || '',
+          });
+        }
+      }
+    }
   }
 
   // Completion rate (exclude deleted)
@@ -164,6 +189,15 @@ export function analyze(tasks) {
   summary.completionRate = activeTotal > 0
     ? (summary.completed / activeTotal) * 100
     : 0;
+
+  // Likely recurring tasks: same title completed 3+ times
+  const RECURRING_THRESHOLD = 3;
+  const recurringTasks = Array.from(completedTitleMap.values())
+    .filter((e) => e.count >= RECURRING_THRESHOLD)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 20);
+  const recurringCompletionCount = recurringTasks.reduce((sum, e) => sum + e.count, 0);
+  const uniqueCompletionCount = summary.completed - recurringCompletionCount;
 
   // Build folders array with sorted lists
   const folders = buildFolderArray(folderMap);
@@ -237,6 +271,12 @@ export function analyze(tasks) {
     tags,
     timeline,
     featureUsage,
+    recurring: {
+      tasks: recurringTasks,
+      totalCompletions: recurringCompletionCount,
+      uniqueCompletions: uniqueCompletionCount,
+      distinctTaskCount: recurringTasks.length,
+    },
     insights: {
       avgCompletionDays,
       busiestList,

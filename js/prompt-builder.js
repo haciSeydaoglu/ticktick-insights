@@ -86,6 +86,13 @@ function buildDataLines(analysis, t) {
   lines.push(`## ${t.overview}`);
   lines.push(`- ${t.totalTasks}: ${formatNumber(analysis.summary.total)}`);
   lines.push(`- ${t.completed}: ${formatNumber(analysis.summary.completed)} (${formatPercent(analysis.summary.completionRate)})`);
+  if (analysis.recurring && analysis.recurring.distinctTaskCount > 0) {
+    const uniqueRate = (analysis.recurring.uniqueCompletions + analysis.summary.pending) > 0
+      ? (analysis.recurring.uniqueCompletions / (analysis.recurring.uniqueCompletions + analysis.summary.pending)) * 100
+      : 0;
+    lines.push(`  - ${t.routineCompletions}: ${formatNumber(analysis.recurring.totalCompletions)} (${analysis.recurring.distinctTaskCount} ${t.differentRoutines})`);
+    lines.push(`  - ${t.uniqueCompletions}: ${formatNumber(analysis.recurring.uniqueCompletions)} — ${t.uniqueCompletionRate}: ${formatPercent(uniqueRate)}`);
+  }
   lines.push(`- ${t.pending}: ${formatNumber(analysis.summary.pending)}`);
   lines.push(`- ${t.deleted}: ${formatNumber(analysis.summary.deleted)}`);
 
@@ -156,6 +163,18 @@ function buildDataLines(analysis, t) {
     }
   }
   lines.push('');
+
+  // Recurring tasks
+  if (analysis.recurring && analysis.recurring.distinctTaskCount > 0) {
+    lines.push(`## ${t.routineTasks}`);
+    lines.push(`- ${t.routineTasksSummary}: ${analysis.recurring.distinctTaskCount} ${t.differentRoutines}, ${formatNumber(analysis.recurring.totalCompletions)} ${t.routineCompletions}`);
+    lines.push('');
+    for (const task of analysis.recurring.tasks) {
+      const list = task.listName ? ` (${task.listName})` : '';
+      lines.push(`  - "${truncate(task.title, 60)}"${list}: ${formatNumber(task.count)}×`);
+    }
+    lines.push('');
+  }
 
   // Key insights
   lines.push(`## ${t.keyInsights}`);
@@ -234,6 +253,27 @@ export function buildPrompt(analysis, lang = 'tr', context = DEFAULT_CONTEXT) {
 
   // --- DATA SECTION ---
   lines.push(...buildDataLines(analysis, t));
+
+  // Emoji suggestions for lists without emoji
+  const listsWithoutEmoji = [];
+  for (const folder of analysis.folders) {
+    for (const list of folder.lists) {
+      if (list.name !== '(No List)' && list.name !== '(No Folder)') {
+        listsWithoutEmoji.push(list.name);
+      }
+    }
+  }
+  if (listsWithoutEmoji.length > 0) {
+    lines.push(`## ${t.emojiSuggestionsTitle}`);
+    lines.push(t.emojiSuggestionsIntro);
+    lines.push('');
+    for (const listName of listsWithoutEmoji) {
+      lines.push(`- ${listName}`);
+    }
+    lines.push('');
+    lines.push(t.emojiSuggestionsFormat);
+    lines.push('');
+  }
 
   // TickTick features reference
   lines.push(...buildTickTickFeatureLines(t));
@@ -410,6 +450,15 @@ const translations = {
     oldestPending: 'En eski bekleyen görevler',
     noFolder: '(Klasör yok)',
     noList: '(Liste yok)',
+    routineTasks: 'Rutin Görevler (En Sık Tamamlananlar)',
+    routineTasksSummary: 'Özet',
+    differentRoutines: 'farklı rutin',
+    routineCompletions: 'rutin tamamlanma',
+    uniqueCompletions: 'tekil tamamlanma',
+    uniqueCompletionRate: 'tekil tamamlanma oranı',
+    emojiSuggestionsTitle: 'Liste Emoji Önerileri',
+    emojiSuggestionsIntro: 'Aşağıdaki listeler için uygun bir emoji ve onu bulmak için kullanılabilecek İngilizce bir arama kelimesi öner:',
+    emojiSuggestionsFormat: 'Format: Liste Adı | Önerilen Emoji | Search Keyword',
     ticktickFeatures: 'TickTick Özellikleri Referansı',
     features: [
       { name: 'Smart Lists (Akıllı Listeler)', desc: 'Filtrelere göre otomatik görev toplayan sanal listeler (örn: "Bu hafta bitenler", "Yüksek öncelikli")' },
@@ -620,6 +669,15 @@ const translations = {
     oldestPending: 'Oldest pending tasks',
     noFolder: '(No Folder)',
     noList: '(No List)',
+    routineTasks: 'Routine Tasks (Most Frequently Completed)',
+    routineTasksSummary: 'Summary',
+    differentRoutines: 'distinct routines',
+    routineCompletions: 'routine completions',
+    uniqueCompletions: 'one-off completions',
+    uniqueCompletionRate: 'unique completion rate',
+    emojiSuggestionsTitle: 'List Emoji Suggestions',
+    emojiSuggestionsIntro: 'For each of the following lists, suggest an appropriate emoji and an English search keyword to find it:',
+    emojiSuggestionsFormat: 'Format: List Name | Suggested Emoji | Search Keyword',
     ticktickFeatures: 'TickTick Features Reference',
     features: [
       { name: 'Smart Lists', desc: 'Virtual lists that automatically collect tasks based on filters (e.g., "Due this week", "High priority")' },

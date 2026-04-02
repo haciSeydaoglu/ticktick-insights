@@ -31,21 +31,29 @@ function icon(name, cls = 'w-4 h-4') {
 
 export function renderDashboard(analysis, container) {
   container.textContent = '';
-  renderSummaryCards(analysis.summary, analysis.priorityBreakdown, container);
+  renderSummaryCards(analysis.summary, analysis.priorityBreakdown, analysis.recurring, container);
   renderPriorityChart(analysis.priorityBreakdown, container);
   renderFeatureUsage(analysis.featureUsage, container);
   renderTimeline(analysis.timeline, container);
   renderInsights(analysis.insights, container);
+  renderRecurring(analysis.recurring, container);
   renderTagTable(analysis.tags, container);
   renderFolderTree(analysis.folders, container);
 }
 
-function renderSummaryCards(summary, priorityBreakdown, container) {
+function renderSummaryCards(summary, priorityBreakdown, recurring, container) {
   const grid = createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-3 mb-8' });
 
   const cards = [
     { label: t('totalTasks'), value: formatNumber(summary.total), color: 'text-gray-900 dark:text-gray-100' },
-    { label: t('completed'), value: formatNumber(summary.completed), sub: formatPercent(summary.completionRate), color: 'text-emerald-600' },
+    {
+      label: t('completed'),
+      value: formatNumber(summary.completed),
+      sub: recurring && recurring.distinctTaskCount > 0
+        ? `${recurring.distinctTaskCount} ${t('differentRoutines')} (${formatNumber(recurring.totalCompletions)} ${t('routineCompletions')}) + ${formatNumber(recurring.uniqueCompletions)} ${t('uniqueCompletions')}`
+        : formatPercent(summary.completionRate),
+      color: 'text-emerald-600',
+    },
     { label: t('pending'), value: formatNumber(summary.pending), color: 'text-amber-600' },
     { label: t('deleted'), value: formatNumber(summary.deleted), color: 'text-red-500' },
     { label: t('highPriority'), value: formatNumber(priorityBreakdown[5]?.count || 0), sub: t('urgentTasks'), color: 'text-red-500' },
@@ -241,6 +249,52 @@ function renderTimeline(timeline, container) {
     ]),
   ]);
   section.appendChild(legend);
+  container.appendChild(section);
+}
+
+function renderRecurring(recurring, container) {
+  if (!recurring || recurring.distinctTaskCount === 0) return;
+
+  const section = createElement('div', { className: 'mb-8' }, [
+    createEl('h2', t('routineTasks'), 'text-base font-bold text-gray-800 dark:text-gray-200 mb-4 pb-2 border-b border-gray-100 dark:border-gray-800'),
+  ]);
+
+  // Summary row
+  const summary = createElement('div', { className: 'flex flex-wrap gap-3 mb-4' });
+  summary.appendChild(makeInsightCard(
+    t('routineTasksDetail'),
+    `${recurring.distinctTaskCount} ${t('differentRoutines')}`,
+    `${formatNumber(recurring.totalCompletions)} ${t('routineCompletions')} · ${formatNumber(recurring.uniqueCompletions)} ${t('uniqueCompletions')}`
+  ));
+  section.appendChild(summary);
+
+  // Top recurring tasks bar list
+  const maxCount = recurring.tasks[0]?.count || 1;
+  const listEl = createElement('div', { className: 'bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 shadow-sm space-y-2' });
+
+  const displayTasks = recurring.tasks.slice(0, 10);
+  for (const task of displayTasks) {
+    const widthPct = Math.round((task.count / maxCount) * 100);
+    const row = createElement('div', { className: 'flex items-center gap-3' });
+
+    const label = createElement('div', { className: 'w-48 flex-shrink-0 text-xs text-gray-700 dark:text-gray-300 truncate' });
+    label.textContent = truncate(task.title, 40);
+
+    const barWrapper = createElement('div', { className: 'flex-1 h-4 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden' });
+    const barFill = createElement('div', { className: 'h-full bg-teal-400 rounded-full progress-fill' });
+    barFill.style.width = `${widthPct}%`;
+    barWrapper.appendChild(barFill);
+
+    const countEl = createElement('div', { className: 'w-16 text-right text-xs font-semibold text-teal-600 dark:text-teal-400 flex-shrink-0' });
+    countEl.textContent = `${formatNumber(task.count)}×`;
+
+    row.appendChild(label);
+    row.appendChild(barWrapper);
+    row.appendChild(countEl);
+    listEl.appendChild(row);
+  }
+
+  section.appendChild(listEl);
   container.appendChild(section);
 }
 
