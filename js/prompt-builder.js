@@ -5,7 +5,7 @@
  * Keeps prompt size between 5-15KB to be context-friendly.
  */
 
-import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js?v=0.1.12';
+import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js?v=0.1.13';
 
 const DEFAULT_CONTEXT = {
   users: 'solo',
@@ -102,6 +102,24 @@ function buildDataLines(analysis, t, options = {}) {
   lines.push(`- ${t.pending}: ${formatNumber(analysis.summary.pending)}`);
   lines.push(`- ${t.deleted}: ${formatNumber(analysis.summary.deleted)}`);
 
+  // Deletion rate signal (high = overcommit or instability)
+  const deletionSignalTotal = analysis.summary.completed + analysis.summary.deleted;
+  if (deletionSignalTotal > 0 && analysis.summary.deleted > 0) {
+    const deletionRate = (analysis.summary.deleted / deletionSignalTotal) * 100;
+    if (deletionRate >= 30) {
+      lines.push(`  - ⚠️ ${t.highDeletionRateNote} (${formatPercent(deletionRate)})`);
+    }
+  }
+
+  // Task creation velocity & abandonment rate
+  if (analysis.summary.taskCreationVelocity > 0) {
+    lines.push(`- ${t.taskVelocity}: ${analysis.summary.taskCreationVelocity.toFixed(1)} ${t.tasksPerMonth}`);
+  }
+  if (analysis.summary.taskAbandonment > 0) {
+    const abandonWarning = analysis.summary.taskAbandonment >= 30 ? ' ⚠️' : '';
+    lines.push(`- ${t.abandonedTasksRate}: ${formatPercent(analysis.summary.taskAbandonment)}${abandonWarning}`);
+  }
+
   if (analysis.summary.dateRange.earliest) {
     lines.push(`- ${t.dateRange}: ${formatDate(analysis.summary.dateRange.earliest)} – ${formatDate(analysis.summary.dateRange.latest)}`);
   }
@@ -128,6 +146,25 @@ function buildDataLines(analysis, t, options = {}) {
     lines.push(`- ${getFeatureLabel(feature.name, t)}: ${formatPercent(feature.percent)} (${feature.usage}/${analysis.summary.total}) — ${t.score}: ${getScoreLabel(feature.score, t)}`);
   }
   lines.push('');
+
+  // Kind breakdown (TEXT / CHECKLIST / NOTE)
+  const kindTotal = (analysis.kindBreakdown.TEXT || 0) + (analysis.kindBreakdown.CHECKLIST || 0) + (analysis.kindBreakdown.NOTE || 0);
+  if (kindTotal > 0) {
+    lines.push(`## ${t.taskTypes}`);
+    const textCount = analysis.kindBreakdown.TEXT || 0;
+    const checklistCount = analysis.kindBreakdown.CHECKLIST || 0;
+    const noteCount = analysis.kindBreakdown.NOTE || 0;
+    const checklistPct = (checklistCount / kindTotal) * 100;
+    lines.push(`- ${t.taskTypeText}: ${formatNumber(textCount)} (${formatPercent(textCount / kindTotal * 100)})`);
+    lines.push(`- ${t.taskTypeChecklist}: ${formatNumber(checklistCount)} (${formatPercent(checklistPct)})`);
+    lines.push(`- ${t.taskTypeNote}: ${formatNumber(noteCount)} (${formatPercent(noteCount / kindTotal * 100)})`);
+    if (checklistPct >= 40) {
+      lines.push(`  → ${t.taskTypeChecklistHint}`);
+    } else if (checklistPct < 10) {
+      lines.push(`  → ${t.taskTypeTextHint}`);
+    }
+    lines.push('');
+  }
 
   // Folder & List structure
   lines.push(`## ${t.folderListStructure}`);
@@ -218,6 +255,31 @@ function buildDataLines(analysis, t, options = {}) {
     }
   }
   lines.push('');
+
+  // Activity timeline (last 12 months)
+  if (analysis.timeline && analysis.timeline.length > 0) {
+    lines.push(`## ${t.activityTimeline}`);
+    const last12 = analysis.timeline.slice(-12);
+    for (const month of last12) {
+      lines.push(`- ${month.month}: ${formatNumber(month.created)} ${t.createdLabel} / ${formatNumber(month.completed)} ${t.completedLabel}`);
+    }
+    lines.push('');
+  }
+
+  // Recent activity (last 7 and 30 days)
+  const ra = ins.recentActivity;
+  if (ra) {
+    lines.push(`## ${t.recentActivity}`);
+    lines.push(`- ${t.last7Days}: ${formatNumber(ra.last7days.created)} ${t.createdLabel} / ${formatNumber(ra.last7days.completed)} ${t.completedLabel}`);
+    lines.push(`- ${t.last30Days}: ${formatNumber(ra.last30days.created)} ${t.createdLabel} / ${formatNumber(ra.last30days.completed)} ${t.completedLabel}`);
+    const totalRecent30 = ra.last30days.created + ra.last30days.completed;
+    if (totalRecent30 === 0) {
+      lines.push(`  → ${t.recentInactiveNote}`);
+    } else if (ra.last30days.created > 0 && ra.last30days.completed / ra.last30days.created < 0.3) {
+      lines.push(`  → ${t.recentLowCompletionNote}`);
+    }
+    lines.push('');
+  }
 
   return lines;
 }
@@ -487,6 +549,24 @@ const translations = {
     uniqueCompletions: 'tekil tamamlanma',
     uniqueCompletionRate: 'tekil tamamlanma oranı',
     customPriorityNote: '> **Kullanıcı notu:** TickTick\'in öncelik seviyelerini custom filtrelerle birleştirerek bir iş akışı sistemi olarak kullanıyorum: Yüksek = Sprint (bu hafta yapılacak — "Sprint" filtresi ile takip ediyorum), Orta = Next (sıradaki iş — "Next" filtresi), Düşük = Backlog (ileride yapılacak — "Backlog" filtresi), Yok = Triage (henüz sınıflandırılmamış, inbox gibi). Dolayısıyla öncelik dağılımı klasik aciliyet anlamında değil, kanban benzeri bir aşama sistemi olarak yorumlanmalı. Analizini ve önerilerini bu kullanıma göre kalibre et.',
+    taskVelocity: 'Görev oluşturma hızı',
+    tasksPerMonth: 'görev/ay ortalaması',
+    abandonedTasksRate: '6+ aydır bekleyen görevler (olası terk)',
+    highDeletionRateNote: 'Yüksek silme oranı — aşırı yüklenme veya plansız görev ekleme sinyali',
+    taskTypes: 'Görev Türleri',
+    taskTypeText: 'Metin görevi',
+    taskTypeChecklist: 'Kontrol listesi',
+    taskTypeNote: 'Not',
+    taskTypeChecklistHint: 'Yapılandırılmış planlayıcı profili — checklist kullanımı yoğun',
+    taskTypeTextHint: 'Serbest/sezgisel planlama profili — görevler genel olarak yapılandırılmamış',
+    activityTimeline: 'Aylık Aktivite (Son 12 Ay)',
+    recentActivity: 'Son Dönem Aktivite',
+    last7Days: 'Son 7 gün',
+    last30Days: 'Son 30 gün',
+    createdLabel: 'oluşturulan',
+    completedLabel: 'tamamlanan',
+    recentInactiveNote: 'Sistem son 30 günde inaktif görünüyor — terk sinyali',
+    recentLowCompletionNote: 'Oluşturma hızı tamamlama hızının çok üzerinde — birikim riski',
     emojiSuggestionsTitle: 'Liste Emoji Önerileri',
     emojiSuggestionsIntro: 'Aşağıdaki listeler için uygun bir emoji ve onu bulmak için kullanılabilecek İngilizce bir arama kelimesi öner:',
     emojiSuggestionsFormat: 'Format: Liste Adı | Önerilen Emoji | Search Keyword',
@@ -712,6 +792,24 @@ const translations = {
     uniqueCompletions: 'one-off completions',
     uniqueCompletionRate: 'unique completion rate',
     customPriorityNote: '> **User note:** I use TickTick\'s priority levels combined with custom filters as a workflow system: High = Sprint (do this week — tracked via a "Sprint" filter), Medium = Next (up next — "Next" filter), Low = Backlog (future — "Backlog" filter), None = Triage (not yet classified, acts like an inbox). Therefore, priority distribution should not be interpreted as classic urgency but as a kanban-like stage system. Calibrate your analysis and recommendations to this workflow.',
+    taskVelocity: 'Task creation velocity',
+    tasksPerMonth: 'tasks/month average',
+    abandonedTasksRate: 'Pending 6+ months (possible abandonment)',
+    highDeletionRateNote: 'High deletion rate — possible overcommitment or unplanned task creation',
+    taskTypes: 'Task Types',
+    taskTypeText: 'Text task',
+    taskTypeChecklist: 'Checklist',
+    taskTypeNote: 'Note',
+    taskTypeChecklistHint: 'Structured planner profile — heavy checklist usage',
+    taskTypeTextHint: 'Free-form / intuitive planning profile — tasks are generally unstructured',
+    activityTimeline: 'Monthly Activity (Last 12 Months)',
+    recentActivity: 'Recent Activity',
+    last7Days: 'Last 7 days',
+    last30Days: 'Last 30 days',
+    createdLabel: 'created',
+    completedLabel: 'completed',
+    recentInactiveNote: 'System appears inactive in the last 30 days — possible abandonment signal',
+    recentLowCompletionNote: 'Creation pace far exceeds completion rate — backlog accumulation risk',
     emojiSuggestionsTitle: 'List Emoji Suggestions',
     emojiSuggestionsIntro: 'For each of the following lists, suggest an appropriate emoji and an English search keyword to find it:',
     emojiSuggestionsFormat: 'Format: List Name | Suggested Emoji | Search Keyword',

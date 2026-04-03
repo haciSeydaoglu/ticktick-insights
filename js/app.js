@@ -5,13 +5,13 @@
  * File metadata in localStorage, CSV content in IndexedDB for re-analysis.
  */
 
-import { parseTickTickCSV, validateFile } from './csv-parser.js?v=0.1.12';
-import { analyze } from './analyzer.js?v=0.1.12';
-import { renderDashboard } from './dashboard.js?v=0.1.12';
-import { buildPrompt, buildPromptData } from './prompt-builder.js?v=0.1.12';
-import { setUILang, getUILang, t } from './i18n.js?v=0.1.12';
-import { createEl } from './utils.js?v=0.1.12';
-import { APP_VERSION } from './version.js?v=0.1.12';
+import { parseTickTickCSV, validateFile } from './csv-parser.js?v=0.1.13';
+import { analyze } from './analyzer.js?v=0.1.13';
+import { renderDashboard } from './dashboard.js?v=0.1.13';
+import { buildPrompt, buildPromptData } from './prompt-builder.js?v=0.1.13';
+import { setUILang, getUILang, t } from './i18n.js?v=0.1.13';
+import { createEl } from './utils.js?v=0.1.13';
+import { APP_VERSION } from './version.js?v=0.1.13';
 
 // Initialize Lucide icons
 if (window.lucide) lucide.createIcons();

@@ -4,7 +4,7 @@
  * Single-pass design for performance.
  */
 
-import { daysBetween, getMonthKey } from './utils.js?v=0.1.12';
+import { daysBetween, getMonthKey } from './utils.js?v=0.1.13';
 
 /**
  * Analyze an array of parsed tasks and produce comprehensive statistics.
@@ -18,6 +18,8 @@ export function analyze(tasks) {
     pending: 0,
     deleted: 0,
     completionRate: 0,
+    taskCreationVelocity: 0,
+    taskAbandonment: 0,
     dateRange: { earliest: null, latest: null },
   };
 
@@ -190,6 +192,9 @@ export function analyze(tasks) {
     ? (summary.completed / activeTotal) * 100
     : 0;
 
+  // Task creation velocity: average tasks created per month
+  summary.taskCreationVelocity = timelineMap.size > 0 ? summary.total / timelineMap.size : 0;
+
   // Likely recurring tasks: same title completed 3+ times
   const RECURRING_THRESHOLD = 3;
   const recurringTasks = Array.from(completedTitleMap.values())
@@ -262,6 +267,13 @@ export function analyze(tasks) {
       if (d >= days30) recentActivity.last30days.completed++;
     }
   }
+
+  // Task abandonment: pending tasks created 180+ days ago
+  const sixMonthsAgo = new Date(now - 180 * 24 * 60 * 60 * 1000);
+  const abandonedCount = tasks.filter(
+    (t) => t.status === 'pending' && t.createdTime && new Date(t.createdTime) < sixMonthsAgo
+  ).length;
+  summary.taskAbandonment = summary.pending > 0 ? (abandonedCount / summary.pending) * 100 : 0;
 
   return {
     summary,
