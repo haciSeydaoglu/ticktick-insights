@@ -5,7 +5,7 @@
  * Keeps prompt size between 5-15KB to be context-friendly.
  */
 
-import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js?v=0.1.11';
+import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js?v=0.1.12';
 
 const DEFAULT_CONTEXT = {
   users: 'solo',
@@ -480,7 +480,7 @@ const translations = {
     noFolder: '(Klasör yok)',
     noList: '(Liste yok)',
     routineTasks: 'Rutin Görevler (En Sık Tamamlananlar)',
-    routineDetectionNote: '> *Not: TickTick yedeği açık tekrar (repeat) bilgisi içermez. Bu görevler, aynı başlığın 3+ kez tamamlanmış olmasıyla sezgisel olarak tespit edilmiştir.*',
+    routineDetectionNote: '> *Not: TickTick\'te bir tekrar eden görevi tamamladığınızda, sistem aynı görevi yedeğe yeni bir satır olarak ekler. Bir rutini 20 kez tamamladıysanız CSV\'de 20 ayrı satır bulunur. Bu uygulama, aynı başlığın 3+ kez tamamlanmış olmasıyla bu "duplicate" satırları sezgisel olarak tespit edip rutin görev olarak sınıflandırmaktadır.*',
     routineTasksSummary: 'Özet',
     differentRoutines: 'farklı rutin',
     routineCompletions: 'rutin tamamlanma',
@@ -490,7 +490,7 @@ const translations = {
     emojiSuggestionsTitle: 'Liste Emoji Önerileri',
     emojiSuggestionsIntro: 'Aşağıdaki listeler için uygun bir emoji ve onu bulmak için kullanılabilecek İngilizce bir arama kelimesi öner:',
     emojiSuggestionsFormat: 'Format: Liste Adı | Önerilen Emoji | Search Keyword',
-    ticktickBackupLimitation: '> **Not:** TickTick yedek dosyası Habit Tracker (alışkanlık takibi) verilerini ve Filter (filtre) yapılandırmalarını içermez. Bu alanlar hakkında yorum yaparken bunu dikkate al.',
+    ticktickBackupLimitation: '> **Not:** TickTick, Habit Tracker (alışkanlık takibi) ve Filter (filtre) verilerini yedek dosyasına dahil etmez — bu özellikler CSV\'de hiç yer almaz. Kullanıcının bu özellikleri kullanıp kullanmadığı bu veriden bilinemiyor.',
     ticktickFeatures: 'TickTick Özellikleri Referansı',
     features: [
       { name: 'Smart Lists (Akıllı Listeler)', desc: 'Filtrelere göre otomatik görev toplayan sanal listeler (örn: "Bu hafta bitenler", "Yüksek öncelikli")' },
@@ -705,7 +705,7 @@ const translations = {
     noFolder: '(No Folder)',
     noList: '(No List)',
     routineTasks: 'Routine Tasks (Most Frequently Completed)',
-    routineDetectionNote: '> *Note: TickTick backup does not include explicit repeat data. These tasks were detected heuristically by finding the same title completed 3+ times.*',
+    routineDetectionNote: '> *Note: In TickTick, completing a recurring task causes the system to add the same task as a new row in the backup. Completing a routine 20 times results in 20 separate rows in the CSV. This app detects these duplicate rows heuristically — tasks with the same title completed 3+ times are classified as routine tasks.*',
     routineTasksSummary: 'Summary',
     differentRoutines: 'distinct routines',
     routineCompletions: 'routine completions',
@@ -715,7 +715,7 @@ const translations = {
     emojiSuggestionsTitle: 'List Emoji Suggestions',
     emojiSuggestionsIntro: 'For each of the following lists, suggest an appropriate emoji and an English search keyword to find it:',
     emojiSuggestionsFormat: 'Format: List Name | Suggested Emoji | Search Keyword',
-    ticktickBackupLimitation: '> **Note:** The TickTick backup file does not include Habit Tracker data or Filter configurations. Keep this in mind when commenting on these areas.',
+    ticktickBackupLimitation: '> **Note:** TickTick does not export Habit Tracker or Filter data — these features are entirely absent from the backup CSV. Whether the user uses these features is unknown from this data.',
     ticktickFeatures: 'TickTick Features Reference',
     features: [
       { name: 'Smart Lists', desc: 'Virtual lists that automatically collect tasks based on filters (e.g., "Due this week", "High priority")' },
