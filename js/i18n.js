@@ -136,6 +136,7 @@ const translations = {
     routineCompletions: 'rutin tamamlanma',
     uniqueCompletions: 'tekil tamamlanma',
     differentRoutines: 'farklı rutin',
+    scheduledRepeatTasks: 'Zamanlanmış Tekrar Eden Görevler',
     // Feature names
     featPriority: 'Öncelik',
     featTags: 'Etiketler',
@@ -311,6 +312,7 @@ const translations = {
     routineCompletions: 'routine completions',
     uniqueCompletions: 'one-off completions',
     differentRoutines: 'distinct routines',
+    scheduledRepeatTasks: 'Scheduled Recurring Tasks',
     featPriority: 'Priority',
     featTags: 'Tags',
     featReminders: 'Reminders',

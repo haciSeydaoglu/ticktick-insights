@@ -5,7 +5,7 @@
  * Keeps prompt size between 5-15KB to be context-friendly.
  */
 
-import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js?v=0.1.19';
+import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js?v=0.1.25';
 
 const DEFAULT_CONTEXT = {
   users: 'solo',
@@ -187,6 +187,13 @@ function buildDataLines(analysis, t, options = {}) {
           const prio = task.priority > 0 ? ` [${getPriorityLabelForPrompt(task.priority, t)}]` : '';
           const date = task.createdTime ? ` (${formatDate(task.createdTime)})` : '';
           lines.push(`  - ${truncate(task.title, 50)}${prio}${date}`);
+          if (task.content) {
+            for (const line of task.content.split('\n')) {
+              const trimmed = line.trim();
+              if (trimmed) lines.push(`    > ${trimmed}`);
+            }
+          }
+          lines.push('');
         }
         if (morePending > 0) {
           lines.push(`  + ${morePending} ${t.moreTasks}`);
@@ -200,6 +207,13 @@ function buildDataLines(analysis, t, options = {}) {
         for (const task of shownCompleted) {
           const date = task.completedTime ? ` (${formatDate(task.completedTime)})` : '';
           lines.push(`  - ${truncate(task.title, 50)}${date}`);
+          if (task.content) {
+            for (const line of task.content.split('\n')) {
+              const trimmed = line.trim();
+              if (trimmed) lines.push(`    > ${trimmed}`);
+            }
+          }
+          lines.push('');
         }
         if (moreCompleted > 0) {
           lines.push(`  + ${moreCompleted} ${t.moreTasks}`);
@@ -217,7 +231,16 @@ function buildDataLines(analysis, t, options = {}) {
     lines.push('');
     for (const task of analysis.recurring.tasks) {
       const list = task.listName ? ` (${task.listName})` : '';
-      lines.push(`  - "${truncate(task.title, 60)}"${list}: ${formatNumber(task.count)}×`);
+      const freq = task.estimatedFrequency ? ` [~${task.estimatedFrequency}]` : '';
+      lines.push(`  - "${truncate(task.title, 60)}"${list}: ${formatNumber(task.count)}×${freq}`);
+    }
+    if (analysis.recurring.explicitRepeatTasks && analysis.recurring.explicitRepeatTasks.length > 0) {
+      lines.push('');
+      lines.push(`### ${t.scheduledRepeatTasks}`);
+      for (const task of analysis.recurring.explicitRepeatTasks) {
+        const list = task.listName ? ` (${task.listName})` : '';
+        lines.push(`  - "${truncate(task.title, 60)}"${list}: ${task.repeatLabel}`);
+      }
     }
     lines.push('');
   }
@@ -560,10 +583,11 @@ const translations = {
     noFolder: '(Klasör yok)',
     noList: '(Liste yok)',
     routineTasks: 'Rutin Görevler (En Sık Tamamlananlar)',
-    routineDetectionNote: '> *Not: TickTick yedeğinde her tekrarlayan görev tamamlaması ayrı satır olarak kaydedilir. Bu uygulama, aynı başlıkla 3+ kez tamamlanan görevleri rutin olarak tespit eder ve ham toplam sayısından bu tekrar satırlarını çıkararak tekilleştirir. Yukarıdaki özellik kullanım metriği, açıkça yapılandırılmış tekrarlayan görevleri ve davranışsal olarak tespit edilenleri birleştirmektedir.*',
+    routineDetectionNote: '> *Not: TickTick yedeğinde her tekrarlayan görev tamamlaması ayrı satır olarak kaydedilir. Aşağıdaki tamamlanma sayıları, aynı görevin farklı günlerde kaç kez yapıldığını gösterir — bunlar ZATEN tekrarlayan görevlerdir ve bu sayılar düzgün bir rutin sisteminin göstergesidir; ayrıca "rutin göreve dönüştür" önerisi yapılmamalıdır. Bu uygulama, aynı başlıkla 3+ kez tamamlanan görevleri rutin olarak tespit eder ve ham toplam sayısından bu tekrar satırlarını çıkararak tekilleştirir.*',
     routineTasksSummary: 'Özet',
     differentRoutines: 'farklı rutin',
     routineCompletions: 'rutin tamamlanma',
+    scheduledRepeatTasks: 'Zamanlanmış Tekrar Eden Görevler',
     taskVelocity: 'Görev oluşturma hızı',
     tasksPerMonth: 'görev/ay ortalaması',
     abandonedTasksRate: '6+ aydır bekleyen görevler (olası terk)',
@@ -593,7 +617,7 @@ const translations = {
     ticktickFeatures: 'TickTick Özellikleri Referansı',
     features: [
       { name: 'Smart Lists (Akıllı Listeler)', desc: 'Filtrelere göre otomatik görev toplayan sanal listeler (örn: "Bu hafta bitenler", "Yüksek öncelikli")' },
-      { name: 'Filters (Filtreler)', desc: 'Etiket, öncelik, tarih, liste vb. kriterlere göre görevleri filtreleme' },
+      { name: 'Filters (Filtreler)', desc: 'Etiket, öncelik, tarih, liste vb. kriterlere göre görevleri filtreleme. Kısıtlama: Tarih filtresi yalnızca bitiş tarihi (due date) için çalışır; ekleme tarihine göre filtreleme yapılamaz. Bu nedenle bitiş tarihi atanmamış eski görevler tarih filtresiyle bulunamaz.' },
       { name: 'Kanban Board', desc: 'Görevleri sütunlarla (Column) görselleştirme' },
       { name: 'Calendar View', desc: 'Görevleri takvim üzerinde görüntüleme ve sürükle-bırak yönetim' },
       { name: 'Habit Tracker', desc: 'Günlük alışkanlık takibi' },
@@ -804,10 +828,11 @@ const translations = {
     noFolder: '(No Folder)',
     noList: '(No List)',
     routineTasks: 'Routine Tasks (Most Frequently Completed)',
-    routineDetectionNote: '> *Note: In TickTick\'s backup, each recurring task completion is stored as a separate row. This app detects routines heuristically (same title completed 3+ times) and deduplicates those instances from the raw total. The feature usage metric above combines explicitly configured recurring tasks with behavior-inferred ones.*',
+    routineDetectionNote: '> *Note: In TickTick\'s backup, each recurring task completion is stored as a separate row. The completion counts below represent how many times each routine was completed across different days — these ARE already recurring tasks and their counts indicate a healthy routine system; do NOT suggest converting these to recurring tasks. This app detects routines heuristically (same title completed 3+ times) and deduplicates those instances from the raw total.*',
     routineTasksSummary: 'Summary',
     differentRoutines: 'distinct routines',
     routineCompletions: 'routine completions',
+    scheduledRepeatTasks: 'Scheduled Recurring Tasks',
     taskVelocity: 'Task creation velocity',
     tasksPerMonth: 'tasks/month average',
     abandonedTasksRate: 'Pending 6+ months (possible abandonment)',
@@ -837,7 +862,7 @@ const translations = {
     ticktickFeatures: 'TickTick Features Reference',
     features: [
       { name: 'Smart Lists', desc: 'Virtual lists that automatically collect tasks based on filters (e.g., "Due this week", "High priority")' },
-      { name: 'Filters', desc: 'Filter tasks by tag, priority, date, list, and other criteria' },
+      { name: 'Filters', desc: 'Filter tasks by tag, priority, date, list, and other criteria. Limitation: The date filter only applies to due date, not creation date. Tasks without a due date cannot be found via date filtering, regardless of when they were added.' },
       { name: 'Kanban Board', desc: 'Visualize tasks in columns for workflow management' },
       { name: 'Calendar View', desc: 'View and manage tasks on a calendar with drag-and-drop' },
       { name: 'Habit Tracker', desc: 'Daily habit tracking and streaks' },

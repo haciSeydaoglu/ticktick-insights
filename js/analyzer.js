@@ -4,7 +4,7 @@
  * Single-pass design for performance.
  */
 
-import { daysBetween, getMonthKey } from './utils.js?v=0.1.19';
+import { daysBetween, getMonthKey } from './utils.js?v=0.1.25';
 
 /**
  * Analyze an array of parsed tasks and produce comprehensive statistics.
@@ -55,6 +55,12 @@ export function analyze(tasks) {
 
   // For recurring task detection: track completed tasks by normalized title
   const completedTitleMap = new Map();
+
+  // For explicit RRULE repeat tasks (pending with Repeat field set)
+  const explicitRepeatTasks = [];
+
+  // Current time used for staleness checks and recent activity
+  const now = new Date();
 
   // Single pass through all tasks
   for (const task of tasks) {
@@ -150,7 +156,14 @@ export function analyze(tasks) {
     if (task.tags.length > 0) featureCounters.withTags++;
     if (task.tags.length > 1) featureCounters.multipleTagTasks++;
     if (task.reminder) featureCounters.withReminder++;
-    if (task.repeat) featureCounters.withRepeat++;
+    if (task.repeat) {
+      featureCounters.withRepeat++;
+      explicitRepeatTasks.push({
+        title: task.title,
+        listName: task.listName || '',
+        repeatLabel: parseRRuleLabel(task.repeat),
+      });
+    }
     if (task.dueDate) featureCounters.withDueDate++;
     if (task.startDate) featureCounters.withStartDate++;
     if (task.content) featureCounters.withContent++;
@@ -173,10 +186,14 @@ export function analyze(tasks) {
           if (!existing.lastCompleted || task.completedTime > existing.lastCompleted) {
             existing.lastCompleted = task.completedTime;
           }
+          if (!existing.firstCompleted || task.completedTime < existing.firstCompleted) {
+            existing.firstCompleted = task.completedTime;
+          }
         } else {
           completedTitleMap.set(key, {
             title: task.title,
             count: 1,
+            firstCompleted: task.completedTime || null,
             lastCompleted: task.completedTime || null,
             folderName: task.folderName || '',
             listName: task.listName || '',
@@ -195,12 +212,20 @@ export function analyze(tasks) {
   // Task creation velocity: average tasks created per month
   summary.taskCreationVelocity = timelineMap.size > 0 ? summary.total / timelineMap.size : 0;
 
-  // Likely recurring tasks: same title completed 3+ times
+  // Likely recurring tasks: same title completed 3+ times, used within the last 40 days
   const RECURRING_THRESHOLD = 3;
+  const staleThreshold = new Date(now - 40 * 24 * 60 * 60 * 1000);
   const recurringTasks = Array.from(completedTitleMap.values())
     .filter((e) => e.count >= RECURRING_THRESHOLD)
+    .filter((e) => e.lastCompleted && new Date(e.lastCompleted) >= staleThreshold)
     .sort((a, b) => b.count - a.count)
     .slice(0, 20);
+
+  // Attach estimated frequency to each detected recurring task
+  for (const t of recurringTasks) {
+    t.estimatedFrequency = estimateFrequency(t.firstCompleted, t.lastCompleted, t.count);
+  }
+
   const recurringCompletionCount = recurringTasks.reduce((sum, e) => sum + e.count, 0);
   const uniqueCompletionCount = summary.completed - recurringCompletionCount;
 
@@ -271,7 +296,6 @@ export function analyze(tasks) {
     .slice(0, 5);
 
   // Recent activity
-  const now = new Date();
   const days7 = new Date(now - 7 * 24 * 60 * 60 * 1000);
   const days30 = new Date(now - 30 * 24 * 60 * 60 * 1000);
   const recentActivity = {
@@ -309,6 +333,7 @@ export function analyze(tasks) {
     featureUsage,
     recurring: {
       tasks: recurringTasks,
+      explicitRepeatTasks,
       totalCompletions: recurringCompletionCount,
       uniqueCompletions: uniqueCompletionCount,
       distinctTaskCount: recurringTasks.length,
@@ -350,12 +375,12 @@ function addTaskToList(listData, task) {
 
   if (task.status === 'completed') {
     listData.completed++;
-    insertSorted(listData.completedTasks, task, 'completedTime', 10);
+    insertSorted(listData.completedTasks, task, 'completedTime', 20);
   } else if (task.status === 'deleted') {
     listData.deleted++;
   } else {
     listData.pending++;
-    insertSorted(listData.pendingTasks, task, 'createdTime', 10);
+    insertSorted(listData.pendingTasks, task, 'createdTime', 20);
   }
 
   for (const tag of task.tags) {
@@ -458,7 +483,7 @@ function buildFeatureUsage(counters, total) {
       usage: counters.withRepeat + (counters.recurringDistinct || 0),
       percent: pct(counters.withRepeat + (counters.recurringDistinct || 0)),
       score: scoreLevel(pct(counters.withRepeat + (counters.recurringDistinct || 0)), 3, 10),
-      detail: `${counters.withRepeat + (counters.recurringDistinct || 0)} recurring tasks (${counters.recurringTotalCompletions || 0} total completions)`,
+      detail: `${counters.withRepeat + (counters.recurringDistinct || 0)} distinct routine definitions — ${counters.recurringTotalCompletions || 0} total completion instances (each day's completion is a separate row in the backup)`,
       tip: 'Best practice: Automate habits and routine tasks with recurring schedules.',
     },
     {
@@ -511,4 +536,50 @@ function scoreLevel(pct, lowThreshold, goodThreshold) {
   if (pct >= goodThreshold) return 'good';
   if (pct >= lowThreshold) return 'medium';
   return 'low';
+}
+
+/**
+ * Estimate completion frequency from first/last completed dates and count.
+ * Returns a human-readable string like "daily", "weekly", etc., or null if not determinable.
+ * @param {string|null} firstDate
+ * @param {string|null} lastDate
+ * @param {number} count
+ * @returns {string|null}
+ */
+function estimateFrequency(firstDate, lastDate, count) {
+  if (!firstDate || !lastDate || count < 2) return null;
+  const spanDays = (new Date(lastDate) - new Date(firstDate)) / (1000 * 60 * 60 * 24);
+  if (spanDays < 1) return null;
+  const avgDays = spanDays / (count - 1);
+  if (avgDays <= 1.5) return 'daily';
+  if (avgDays <= 3) return 'every 2-3 days';
+  if (avgDays <= 8) return 'weekly';
+  if (avgDays <= 18) return 'every 2 weeks';
+  if (avgDays <= 40) return 'monthly';
+  return 'occasional';
+}
+
+/**
+ * Parse a TickTick RRULE string into a short human-readable label.
+ * Handles the most common patterns: FREQ, INTERVAL, BYDAY.
+ * @param {string} rrule
+ * @returns {string}
+ */
+function parseRRuleLabel(rrule) {
+  if (!rrule) return '';
+  const str = rrule.toUpperCase();
+  const freqMatch = str.match(/FREQ=(\w+)/);
+  if (!freqMatch) return rrule;
+  const freq = freqMatch[1];
+  const interval = parseInt((str.match(/INTERVAL=(\d+)/) || [])[1] || '1', 10);
+  const byDay = (str.match(/BYDAY=([^;]+)/) || [])[1];
+
+  const freqWord = { DAILY: 'day', WEEKLY: 'week', MONTHLY: 'month', YEARLY: 'year' }[freq] || freq.toLowerCase();
+  const dayMap = { MO: 'Mon', TU: 'Tue', WE: 'Wed', TH: 'Thu', FR: 'Fri', SA: 'Sat', SU: 'Sun' };
+
+  if (byDay && freq === 'WEEKLY') {
+    const days = byDay.split(',').map((d) => dayMap[d.trim()] || d).join(', ');
+    return interval === 1 ? `weekly (${days})` : `every ${interval} weeks (${days})`;
+  }
+  return interval === 1 ? `every ${freqWord}` : `every ${interval} ${freqWord}s`;
 }
