@@ -51,12 +51,40 @@ js/utils.js             - Sanitization, date formatting, helpers
 - CSS-only visualizations (no chart libraries)
 
 ## Versioning Rules
-- App version source of truth: `js/version.js`
-- Version format: SemVer patch
-- Initial version: `0.1.0`
-- After every completed repo change, increment the patch version by 1 in `js/version.js` (example: `0.1.0` -> `0.1.1`)
+
+### Source of Truth
+- `js/version.js` is the single source of truth for the app version
+- Format: SemVer patch — `'X.Y.Z'`
+
+### Required Steps After Every Code Change
+
+**After every completed change set, increment the patch version by 1:**
+
+1. Read `js/version.js` → get the current `APP_VERSION` value (e.g., `'0.1.25'`)
+2. Increment patch by 1: `'0.1.25'` → `'0.1.26'`
+3. Update the `APP_VERSION` value in `js/version.js`
+4. Update all cache-bust version stamps (see below)
+
+### Cache-Bust Update (Required on Every Version Bump)
+
+Replace every `?v=OLD_VERSION` with `?v=NEW_VERSION` in the following files:
+
+| File | Lines to update |
+|------|----------------|
+| `index.html` | `css/style.css?v=...` and `js/app.js?v=...` |
+| `js/app.js` | All 7 `import ... from './xxx.js?v=...'` lines |
+| `js/analyzer.js` | `import ... from './utils.js?v=...'` |
+| `js/dashboard.js` | `import ... from './utils.js?v=...'` and `import ... from './i18n.js?v=...'` |
+| `js/prompt-builder.js` | `import ... from './utils.js?v=...'` |
+
+**Method:** Use `Edit` with `replace_all: true` for each file to swap old version string with new.
+
+**Verify:** After updating, search all `.js` and `.html` files (excluding `version.js`) for the old
+version string — no stale stamps should remain.
+
+### Completion Condition
 - No task is complete unless the version bump is included in the same change set
-- The footer must display the current version from `js/version.js` in `vX.Y.Z` format
+- The footer must always display the current version in `vX.Y.Z` format
 
 ## How to Test Locally
 ```bash
