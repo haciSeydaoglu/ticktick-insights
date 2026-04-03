@@ -5,13 +5,13 @@
  * File metadata in localStorage, CSV content in IndexedDB for re-analysis.
  */
 
-import { parseTickTickCSV, validateFile } from './csv-parser.js?v=0.1.13';
-import { analyze } from './analyzer.js?v=0.1.13';
-import { renderDashboard } from './dashboard.js?v=0.1.13';
-import { buildPrompt, buildPromptData } from './prompt-builder.js?v=0.1.13';
-import { setUILang, getUILang, t } from './i18n.js?v=0.1.13';
-import { createEl } from './utils.js?v=0.1.13';
-import { APP_VERSION } from './version.js?v=0.1.13';
+import { parseTickTickCSV, validateFile } from './csv-parser.js?v=0.1.17';
+import { analyze } from './analyzer.js?v=0.1.17';
+import { renderDashboard } from './dashboard.js?v=0.1.17';
+import { buildPrompt, buildPromptData } from './prompt-builder.js?v=0.1.17';
+import { setUILang, getUILang, t } from './i18n.js?v=0.1.17';
+import { createEl } from './utils.js?v=0.1.17';
+import { APP_VERSION } from './version.js?v=0.1.17';
 
 // Initialize Lucide icons
 if (window.lucide) lucide.createIcons();
@@ -78,6 +78,31 @@ const PROMPT_VIEW_OPTIONS = [
 ];
 
 const PROMPT_CONTEXT_STORAGE_KEY = 'ticktick-prompt-context';
+const USER_NOTES_KEY = 'ticktick-user-notes';
+
+const DEFAULT_USER_NOTES = {
+  pomodoro: 'Evet, TickTick\'in pomodoro özelliğini kullanıyorum. 52 dk çalış, 12 dk ara ver şeklinde çalışıyorum. İkinci 52 dakikadan sonra 20 dk uzun mola veriyorum.',
+  habit: 'Evet, TickTick\'in alışkanlık özelliğini kullanıyorum. Günlük 3 alışkanlığım var: sabah inbox\'ı boşaltma (10dk), günün başında triage güncelleme (15dk), sprinti elden geçirme (5dk). Haftalık 1 alışkanlığım var: listeleri gözden geçirme.',
+  filter: 'Evet, TickTick\'in filtreleme özelliğini kullanıyorum. Öncelik seviyelerini custom filtrelerle birleştirerek kanban benzeri bir iş akışı sistemi kurdum: Yüksek = Sprint (bu hafta üzerinde çalıştıklarım, "Sprint" filtresiyle takip ediyorum), Orta = Next (sıradaki görevler, "Next" filtresiyle takip ediyorum), Düşük = Backlog (Next adayları, ileride ele alınacak, "Backlog" filtresi), Yok = Triage (henüz sınıflandırılmamış görevler). Görevler Next veya Backlog\'tan doğrudan tamamlanmaz; önce Sprint\'e (Yüksek öncelik) terfi eder, ardından tamamlanır. Bu nedenle Next ve Backlog\'un tamamlanma oranı düşük görünmesi tamamen normaldir, bir sorun değil. Sprint her zaman daha yüksek tamamlanma oranına sahip olacaktır. Bu öncelik dağılımı klasik aciliyet anlamında değil, kanban aşama sistemi olarak yorumlanmalıdır.',
+};
+
+function loadUserNotes() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(USER_NOTES_KEY));
+    if (!stored || typeof stored !== 'object') return { ...DEFAULT_USER_NOTES };
+    return {
+      pomodoro: typeof stored.pomodoro === 'string' ? stored.pomodoro : DEFAULT_USER_NOTES.pomodoro,
+      habit: typeof stored.habit === 'string' ? stored.habit : DEFAULT_USER_NOTES.habit,
+      filter: typeof stored.filter === 'string' ? stored.filter : DEFAULT_USER_NOTES.filter,
+    };
+  } catch {
+    return { ...DEFAULT_USER_NOTES };
+  }
+}
+
+function saveUserNotes(notes) {
+  localStorage.setItem(USER_NOTES_KEY, JSON.stringify(notes));
+}
 
 function createDefaultPromptContext() {
   return {
@@ -87,7 +112,6 @@ function createDefaultPromptContext() {
     optimize: ['list_structure', 'tag_structure', 'workflow'],
     style: 'direct',
     taskLimit: 7,
-    customPriorityMapping: false,
   };
 }
 
@@ -125,7 +149,6 @@ function normalizePromptContext(context) {
   // Extra fields outside PROMPT_CONTEXT_QUESTIONS
   const rawLimit = source.taskLimit;
   normalized.taskLimit = (Number.isInteger(rawLimit) && rawLimit >= 3 && rawLimit <= 20) ? rawLimit : defaults.taskLimit;
-  normalized.customPriorityMapping = source.customPriorityMapping === true;
 
   return normalized;
 }
@@ -147,6 +170,7 @@ let currentAnalysis = null;
 let promptCache = createEmptyPromptCache();
 let promptContext = loadPromptContext();
 let promptViewMode = 'full';
+let userNotes = loadUserNotes();
 
 // DOM references
 const screenUpload = document.getElementById('screen-upload');
@@ -204,8 +228,8 @@ function rebuildPromptCache() {
   if (!currentAnalysis) return;
   const lang = getUILang();
   const otherLang = lang === 'tr' ? 'en' : 'tr';
-  promptCache.full[lang] = buildPrompt(currentAnalysis, lang, promptContext);
-  promptCache.raw[lang] = buildPromptData(currentAnalysis, lang, promptContext);
+  promptCache.full[lang] = buildPrompt(currentAnalysis, lang, promptContext, userNotes);
+  promptCache.raw[lang] = buildPromptData(currentAnalysis, lang, promptContext, userNotes);
   promptCache.full[otherLang] = '';
   promptCache.raw[otherLang] = '';
 }
@@ -374,27 +398,48 @@ function renderPromptContextControls() {
 
   taskLimitRow.appendChild(taskLimitInput);
   separator.appendChild(taskLimitRow);
-
-  // Custom priority mapping checkbox
-  const priorityRow = document.createElement('label');
-  priorityRow.className = 'flex items-start gap-2 cursor-pointer';
-
-  const priorityCheckbox = document.createElement('input');
-  priorityCheckbox.type = 'checkbox';
-  priorityCheckbox.checked = promptContext.customPriorityMapping || false;
-  priorityCheckbox.className = 'mt-0.5 rounded border-gray-300 dark:border-gray-600 text-teal-600 focus:ring-teal-500';
-  priorityCheckbox.addEventListener('change', () => {
-    promptContext = { ...promptContext, customPriorityMapping: priorityCheckbox.checked };
-    savePromptContext(promptContext);
-    refreshPromptFromState();
-  });
-
-  priorityRow.appendChild(priorityCheckbox);
-  priorityRow.appendChild(createEl('span', t('promptCtxCustomPriority'), 'text-xs text-gray-600 dark:text-gray-400'));
-
-  separator.appendChild(priorityRow);
   wrapper.appendChild(separator);
 
+  // User work system notes
+  const notesSeparator = document.createElement('div');
+  notesSeparator.className = 'border-t border-gray-100 dark:border-gray-800 mt-4 pt-4 space-y-3';
+
+  notesSeparator.appendChild(createEl('p', t('userNotesHeading'), 'text-xs font-semibold text-gray-700 dark:text-gray-300'));
+  notesSeparator.appendChild(createEl('p', t('userNotesDesc'), 'text-xs text-gray-500 dark:text-gray-400 leading-relaxed'));
+
+  const noteFields = [
+    { key: 'pomodoro', labelKey: 'pomodoroLabel', rows: 2 },
+    { key: 'habit', labelKey: 'habitLabel', rows: 2 },
+    { key: 'filter', labelKey: 'filterLabel', rows: 3 },
+  ];
+
+  for (const field of noteFields) {
+    const fieldDiv = document.createElement('div');
+    const label = document.createElement('label');
+    label.className = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1';
+    label.textContent = t(field.labelKey);
+
+    const textarea = document.createElement('textarea');
+    textarea.rows = field.rows;
+    textarea.value = userNotes[field.key];
+    textarea.className = 'w-full p-2 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300 resize-y focus:outline-none focus:border-teal-300 dark:focus:border-teal-600';
+    textarea.addEventListener('input', () => {
+      userNotes = { ...userNotes, [field.key]: textarea.value };
+      clearTimeout(userNotesSaveTimer);
+      userNotesSaveTimer = setTimeout(() => {
+        saveUserNotes(userNotes);
+        refreshPromptFromState();
+      }, 400);
+    });
+
+    label.htmlFor = `note-${field.key}`;
+    textarea.id = `note-${field.key}`;
+    fieldDiv.appendChild(label);
+    fieldDiv.appendChild(textarea);
+    notesSeparator.appendChild(fieldDiv);
+  }
+
+  wrapper.appendChild(notesSeparator);
   promptContextControls.appendChild(wrapper);
 }
 
@@ -810,6 +855,8 @@ document.getElementById('btn-logo').addEventListener('click', resetToUpload);
 
 // Clear recent files
 btnClearRecent.addEventListener('click', clearRecentFiles);
+
+let userNotesSaveTimer = null;
 
 // Initial render of recent files on page load
 renderAppVersion();

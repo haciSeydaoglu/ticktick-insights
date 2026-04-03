@@ -4,7 +4,7 @@
  * Single-pass design for performance.
  */
 
-import { daysBetween, getMonthKey } from './utils.js?v=0.1.13';
+import { daysBetween, getMonthKey } from './utils.js?v=0.1.17';
 
 /**
  * Analyze an array of parsed tasks and produce comprehensive statistics.
@@ -204,6 +204,30 @@ export function analyze(tasks) {
   const recurringCompletionCount = recurringTasks.reduce((sum, e) => sum + e.count, 0);
   const uniqueCompletionCount = summary.completed - recurringCompletionCount;
 
+  // Deduplicate recurring task instances from summary counts.
+  // In TickTick backups each recurring completion is a separate CSV row.
+  // Collapse: remove (recurringCompletionCount - recurringTasks.length) from totals.
+  const recurringInflation = recurringCompletionCount - recurringTasks.length;
+  summary.rawTotal = summary.total;
+  summary.rawCompleted = summary.completed;
+  if (recurringInflation > 0) {
+    summary.total -= recurringInflation;
+    summary.completed -= recurringInflation;
+    const deduplicatedActive = summary.completed + summary.pending;
+    summary.completionRate = deduplicatedActive > 0
+      ? (summary.completed / deduplicatedActive) * 100
+      : 0;
+    if (timelineMap.size > 0) {
+      summary.taskCreationVelocity = summary.total / timelineMap.size;
+    }
+  }
+
+  // Merge explicit (Repeat column) and behavior-inferred recurring counts.
+  // withRepeat covers pending tasks with RRULE; recurringDistinct covers completed patterns.
+  // No overlap: pending vs completed, safe to sum.
+  featureCounters.recurringDistinct = recurringTasks.length;
+  featureCounters.recurringTotalCompletions = recurringCompletionCount;
+
   // Build folders array with sorted lists
   const folders = buildFolderArray(folderMap);
 
@@ -288,6 +312,8 @@ export function analyze(tasks) {
       totalCompletions: recurringCompletionCount,
       uniqueCompletions: uniqueCompletionCount,
       distinctTaskCount: recurringTasks.length,
+      mergedCount: featureCounters.withRepeat + recurringTasks.length,
+      inflation: recurringInflation,
     },
     insights: {
       avgCompletionDays,
@@ -429,10 +455,10 @@ function buildFeatureUsage(counters, total) {
     {
       name: 'Recurring Tasks',
       icon: 'repeat',
-      usage: counters.withRepeat,
-      percent: pct(counters.withRepeat),
-      score: scoreLevel(pct(counters.withRepeat), 3, 10),
-      detail: `${counters.withRepeat} recurring tasks`,
+      usage: counters.withRepeat + (counters.recurringDistinct || 0),
+      percent: pct(counters.withRepeat + (counters.recurringDistinct || 0)),
+      score: scoreLevel(pct(counters.withRepeat + (counters.recurringDistinct || 0)), 3, 10),
+      detail: `${counters.withRepeat + (counters.recurringDistinct || 0)} recurring tasks (${counters.recurringTotalCompletions || 0} total completions)`,
       tip: 'Best practice: Automate habits and routine tasks with recurring schedules.',
     },
     {

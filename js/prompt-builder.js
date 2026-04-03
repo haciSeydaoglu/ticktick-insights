@@ -5,7 +5,7 @@
  * Keeps prompt size between 5-15KB to be context-friendly.
  */
 
-import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js?v=0.1.13';
+import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js?v=0.1.17';
 
 const DEFAULT_CONTEXT = {
   users: 'solo',
@@ -25,7 +25,6 @@ function normalizeContext(context = {}) {
     optimize: Array.isArray(context.optimize) && context.optimize.length > 0 ? context.optimize : DEFAULT_CONTEXT.optimize,
     style: context.style || DEFAULT_CONTEXT.style,
     taskLimit,
-    customPriorityMapping: context.customPriorityMapping === true,
   };
 }
 
@@ -85,20 +84,12 @@ function localizeSpecialName(name, t) {
 
 function buildDataLines(analysis, t, options = {}) {
   const taskLimit = options.taskLimit || 7;
-  const customPriorityMapping = options.customPriorityMapping || false;
   const lines = [];
 
   // Summary section
   lines.push(`## ${t.overview}`);
   lines.push(`- ${t.totalTasks}: ${formatNumber(analysis.summary.total)}`);
   lines.push(`- ${t.completed}: ${formatNumber(analysis.summary.completed)} (${formatPercent(analysis.summary.completionRate)})`);
-  if (analysis.recurring && analysis.recurring.distinctTaskCount > 0) {
-    const uniqueRate = (analysis.recurring.uniqueCompletions + analysis.summary.pending) > 0
-      ? (analysis.recurring.uniqueCompletions / (analysis.recurring.uniqueCompletions + analysis.summary.pending)) * 100
-      : 0;
-    lines.push(`  - ${t.routineCompletions}: ${formatNumber(analysis.recurring.totalCompletions)} (${analysis.recurring.distinctTaskCount} ${t.differentRoutines})`);
-    lines.push(`  - ${t.uniqueCompletions}: ${formatNumber(analysis.recurring.uniqueCompletions)} — ${t.uniqueCompletionRate}: ${formatPercent(uniqueRate)}`);
-  }
   lines.push(`- ${t.pending}: ${formatNumber(analysis.summary.pending)}`);
   lines.push(`- ${t.deleted}: ${formatNumber(analysis.summary.deleted)}`);
 
@@ -132,11 +123,6 @@ function buildDataLines(analysis, t, options = {}) {
   lines.push(`- ${t.priorityMedium}: ${formatPriorityBreakdownLine(analysis.priorityBreakdown[3], t)}`);
   lines.push(`- ${t.priorityLow}: ${formatPriorityBreakdownLine(analysis.priorityBreakdown[1], t)}`);
   lines.push(`- ${t.priorityNone}: ${formatPriorityBreakdownLine(analysis.priorityBreakdown[0], t)}`);
-
-  if (customPriorityMapping) {
-    lines.push('');
-    lines.push(t.customPriorityNote);
-  }
 
   lines.push('');
 
@@ -227,7 +213,7 @@ function buildDataLines(analysis, t, options = {}) {
   if (analysis.recurring && analysis.recurring.distinctTaskCount > 0) {
     lines.push(`## ${t.routineTasks}`);
     lines.push(t.routineDetectionNote);
-    lines.push(`- ${t.routineTasksSummary}: ${analysis.recurring.distinctTaskCount} ${t.differentRoutines}, ${formatNumber(analysis.recurring.totalCompletions)} ${t.routineCompletions}`);
+    lines.push(`- ${t.routineTasksSummary}: ${analysis.recurring.mergedCount} ${t.differentRoutines}, ${formatNumber(analysis.recurring.totalCompletions)} ${t.routineCompletions}`);
     lines.push('');
     for (const task of analysis.recurring.tasks) {
       const list = task.listName ? ` (${task.listName})` : '';
@@ -293,16 +279,30 @@ function buildTickTickFeatureLines(t) {
     lines.push(`- **${feat.name}**: ${feat.desc}`);
   }
   lines.push('');
-  lines.push(t.ticktickBackupLimitation);
-  lines.push('');
 
   return lines;
 }
 
-export function buildPromptData(analysis, lang = 'tr', context = {}) {
+export function buildPromptData(analysis, lang = 'tr', context = {}, userNotes = {}) {
   const t = translations[lang] || translations.tr;
   const normalized = normalizeContext(context);
-  return buildDataLines(analysis, t, { taskLimit: normalized.taskLimit, customPriorityMapping: normalized.customPriorityMapping }).join('\n');
+  const lines = [];
+
+  const pomodoro = typeof userNotes.pomodoro === 'string' ? userNotes.pomodoro.trim() : '';
+  const habit = typeof userNotes.habit === 'string' ? userNotes.habit.trim() : '';
+  const filter = typeof userNotes.filter === 'string' ? userNotes.filter.trim() : '';
+
+  if (pomodoro || habit || filter) {
+    lines.push(`## ${t.userWorkSystemTitle}`);
+    lines.push('');
+    if (pomodoro) lines.push(`**${t.userWorkSystemPomodoro}:** ${pomodoro}`);
+    if (habit) lines.push(`**${t.userWorkSystemHabit}:** ${habit}`);
+    if (filter) lines.push(`**${t.userWorkSystemFilter}:** ${filter}`);
+    lines.push('');
+  }
+
+  lines.push(...buildDataLines(analysis, t, { taskLimit: normalized.taskLimit }));
+  return lines.join('\n');
 }
 
 /**
@@ -312,7 +312,7 @@ export function buildPromptData(analysis, lang = 'tr', context = {}) {
  * @param {Object} context - Prompt context selections from UI
  * @returns {string} Complete prompt text
  */
-export function buildPrompt(analysis, lang = 'tr', context = DEFAULT_CONTEXT) {
+export function buildPrompt(analysis, lang = 'tr', context = DEFAULT_CONTEXT, userNotes = {}) {
   const t = translations[lang] || translations.tr;
   const normalizedContext = normalizeContext(context);
   const lines = [];
@@ -339,8 +339,22 @@ export function buildPrompt(analysis, lang = 'tr', context = DEFAULT_CONTEXT) {
   }
   lines.push('');
 
+  // User work system notes (if any)
+  const pomodoro = typeof userNotes.pomodoro === 'string' ? userNotes.pomodoro.trim() : '';
+  const habit = typeof userNotes.habit === 'string' ? userNotes.habit.trim() : '';
+  const filter = typeof userNotes.filter === 'string' ? userNotes.filter.trim() : '';
+
+  if (pomodoro || habit || filter) {
+    lines.push(`## ${t.userWorkSystemTitle}`);
+    lines.push('');
+    if (pomodoro) lines.push(`**${t.userWorkSystemPomodoro}:** ${pomodoro}`);
+    if (habit) lines.push(`**${t.userWorkSystemHabit}:** ${habit}`);
+    if (filter) lines.push(`**${t.userWorkSystemFilter}:** ${filter}`);
+    lines.push('');
+  }
+
   // --- DATA SECTION ---
-  lines.push(...buildDataLines(analysis, t, { taskLimit: normalizedContext.taskLimit, customPriorityMapping: normalizedContext.customPriorityMapping }));
+  lines.push(...buildDataLines(analysis, t, { taskLimit: normalizedContext.taskLimit }));
 
   // Emoji suggestions for lists without emoji
   const listsWithoutEmoji = [];
@@ -542,13 +556,10 @@ const translations = {
     noFolder: '(Klasör yok)',
     noList: '(Liste yok)',
     routineTasks: 'Rutin Görevler (En Sık Tamamlananlar)',
-    routineDetectionNote: '> *Not: TickTick\'te bir tekrar eden görevi tamamladığınızda, sistem aynı görevi yedeğe yeni bir satır olarak ekler. Bir rutini 20 kez tamamladıysanız CSV\'de 20 ayrı satır bulunur. Bu uygulama, aynı başlığın 3+ kez tamamlanmış olmasıyla bu "duplicate" satırları sezgisel olarak tespit edip rutin görev olarak sınıflandırmaktadır.*',
+    routineDetectionNote: '> *Not: TickTick yedeğinde her tekrarlayan görev tamamlaması ayrı satır olarak kaydedilir. Bu uygulama, aynı başlıkla 3+ kez tamamlanan görevleri rutin olarak tespit eder ve ham toplam sayısından bu tekrar satırlarını çıkararak tekilleştirir. Yukarıdaki özellik kullanım metriği, açıkça yapılandırılmış tekrarlayan görevleri ve davranışsal olarak tespit edilenleri birleştirmektedir.*',
     routineTasksSummary: 'Özet',
     differentRoutines: 'farklı rutin',
     routineCompletions: 'rutin tamamlanma',
-    uniqueCompletions: 'tekil tamamlanma',
-    uniqueCompletionRate: 'tekil tamamlanma oranı',
-    customPriorityNote: '> **Kullanıcı notu:** TickTick\'in öncelik seviyelerini custom filtrelerle birleştirerek bir iş akışı sistemi olarak kullanıyorum: Yüksek = Sprint (bu hafta yapılacak — "Sprint" filtresi ile takip ediyorum), Orta = Next (sıradaki iş — "Next" filtresi), Düşük = Backlog (ileride yapılacak — "Backlog" filtresi), Yok = Triage (henüz sınıflandırılmamış, inbox gibi). Dolayısıyla öncelik dağılımı klasik aciliyet anlamında değil, kanban benzeri bir aşama sistemi olarak yorumlanmalı. Analizini ve önerilerini bu kullanıma göre kalibre et.',
     taskVelocity: 'Görev oluşturma hızı',
     tasksPerMonth: 'görev/ay ortalaması',
     abandonedTasksRate: '6+ aydır bekleyen görevler (olası terk)',
@@ -570,7 +581,10 @@ const translations = {
     emojiSuggestionsTitle: 'Liste Emoji Önerileri',
     emojiSuggestionsIntro: 'Aşağıdaki listeler için uygun bir emoji ve onu bulmak için kullanılabilecek İngilizce bir arama kelimesi öner:',
     emojiSuggestionsFormat: 'Format: Liste Adı | Önerilen Emoji | Search Keyword',
-    ticktickBackupLimitation: '> **Not:** TickTick, Habit Tracker (alışkanlık takibi) ve Filter (filtre) verilerini yedek dosyasına dahil etmez — bu özellikler CSV\'de hiç yer almaz. Kullanıcının bu özellikleri kullanıp kullanmadığı bu veriden bilinemiyor.',
+    userWorkSystemTitle: 'Kullanıcının Çalışma Sistemi (Kullanıcı Notu)',
+    userWorkSystemPomodoro: 'Pomodoro',
+    userWorkSystemHabit: 'Alışkanlık',
+    userWorkSystemFilter: 'Filtreleme/Öncelik Sistemi',
     ticktickFeatures: 'TickTick Özellikleri Referansı',
     features: [
       { name: 'Smart Lists (Akıllı Listeler)', desc: 'Filtrelere göre otomatik görev toplayan sanal listeler (örn: "Bu hafta bitenler", "Yüksek öncelikli")' },
@@ -785,13 +799,10 @@ const translations = {
     noFolder: '(No Folder)',
     noList: '(No List)',
     routineTasks: 'Routine Tasks (Most Frequently Completed)',
-    routineDetectionNote: '> *Note: In TickTick, completing a recurring task causes the system to add the same task as a new row in the backup. Completing a routine 20 times results in 20 separate rows in the CSV. This app detects these duplicate rows heuristically — tasks with the same title completed 3+ times are classified as routine tasks.*',
+    routineDetectionNote: '> *Note: In TickTick\'s backup, each recurring task completion is stored as a separate row. This app detects routines heuristically (same title completed 3+ times) and deduplicates those instances from the raw total. The feature usage metric above combines explicitly configured recurring tasks with behavior-inferred ones.*',
     routineTasksSummary: 'Summary',
     differentRoutines: 'distinct routines',
     routineCompletions: 'routine completions',
-    uniqueCompletions: 'one-off completions',
-    uniqueCompletionRate: 'unique completion rate',
-    customPriorityNote: '> **User note:** I use TickTick\'s priority levels combined with custom filters as a workflow system: High = Sprint (do this week — tracked via a "Sprint" filter), Medium = Next (up next — "Next" filter), Low = Backlog (future — "Backlog" filter), None = Triage (not yet classified, acts like an inbox). Therefore, priority distribution should not be interpreted as classic urgency but as a kanban-like stage system. Calibrate your analysis and recommendations to this workflow.',
     taskVelocity: 'Task creation velocity',
     tasksPerMonth: 'tasks/month average',
     abandonedTasksRate: 'Pending 6+ months (possible abandonment)',
@@ -813,7 +824,10 @@ const translations = {
     emojiSuggestionsTitle: 'List Emoji Suggestions',
     emojiSuggestionsIntro: 'For each of the following lists, suggest an appropriate emoji and an English search keyword to find it:',
     emojiSuggestionsFormat: 'Format: List Name | Suggested Emoji | Search Keyword',
-    ticktickBackupLimitation: '> **Note:** TickTick does not export Habit Tracker or Filter data — these features are entirely absent from the backup CSV. Whether the user uses these features is unknown from this data.',
+    userWorkSystemTitle: 'User\'s Work System (User Note)',
+    userWorkSystemPomodoro: 'Pomodoro',
+    userWorkSystemHabit: 'Habit Tracking',
+    userWorkSystemFilter: 'Filter/Priority System',
     ticktickFeatures: 'TickTick Features Reference',
     features: [
       { name: 'Smart Lists', desc: 'Virtual lists that automatically collect tasks based on filters (e.g., "Due this week", "High priority")' },
