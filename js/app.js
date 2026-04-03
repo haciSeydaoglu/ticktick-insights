@@ -5,13 +5,13 @@
  * File metadata in localStorage, CSV content in IndexedDB for re-analysis.
  */
 
-import { parseTickTickCSV, validateFile } from './csv-parser.js?v=0.1.18';
-import { analyze } from './analyzer.js?v=0.1.18';
-import { renderDashboard } from './dashboard.js?v=0.1.18';
-import { buildPrompt, buildPromptData } from './prompt-builder.js?v=0.1.18';
-import { setUILang, getUILang, t } from './i18n.js?v=0.1.18';
-import { createEl } from './utils.js?v=0.1.18';
-import { APP_VERSION } from './version.js?v=0.1.18';
+import { parseTickTickCSV, validateFile } from './csv-parser.js?v=0.1.19';
+import { analyze } from './analyzer.js?v=0.1.19';
+import { renderDashboard } from './dashboard.js?v=0.1.19';
+import { buildPrompt, buildPromptData } from './prompt-builder.js?v=0.1.19';
+import { setUILang, getUILang, t } from './i18n.js?v=0.1.19';
+import { createEl } from './utils.js?v=0.1.19';
+import { APP_VERSION } from './version.js?v=0.1.19';
 
 // Initialize Lucide icons
 if (window.lucide) lucide.createIcons();
@@ -84,6 +84,7 @@ const DEFAULT_USER_NOTES = {
   pomodoro: 'Evet, TickTick\'in pomodoro özelliğini kullanıyorum. 52 dk çalış, 12 dk ara ver şeklinde çalışıyorum. İkinci 52 dakikadan sonra 20 dk uzun mola veriyorum.',
   habit: '',
   filter: 'Evet, TickTick\'in filtreleme özelliğini kullanıyorum. Öncelik seviyelerini custom filtrelerle birleştirerek kanban benzeri bir iş akışı sistemi kurdum: Yüksek = Sprint (bu hafta üzerinde çalıştıklarım, "Sprint" filtresiyle takip ediyorum), Orta = Next (sıradaki görevler, "Next" filtresiyle takip ediyorum), Düşük = Backlog (Next adayları, ileride ele alınacak, "Backlog" filtresi), Yok = Triage (henüz sınıflandırılmamış görevler). Görevler Next veya Backlog\'tan doğrudan tamamlanmaz; önce Sprint\'e (Yüksek öncelik) terfi eder, ardından tamamlanır. Bu nedenle Next ve Backlog\'un tamamlanma oranı düşük görünmesi tamamen normaldir, bir sorun değil. Sprint her zaman daha yüksek tamamlanma oranına sahip olacaktır. Bu öncelik dağılımı klasik aciliyet anlamında değil, kanban aşama sistemi olarak yorumlanmalıdır.',
+  extra: '',
 };
 
 function loadUserNotes() {
@@ -94,6 +95,7 @@ function loadUserNotes() {
       pomodoro: typeof stored.pomodoro === 'string' ? stored.pomodoro : DEFAULT_USER_NOTES.pomodoro,
       habit: typeof stored.habit === 'string' ? stored.habit : DEFAULT_USER_NOTES.habit,
       filter: typeof stored.filter === 'string' ? stored.filter : DEFAULT_USER_NOTES.filter,
+      extra: typeof stored.extra === 'string' ? stored.extra : DEFAULT_USER_NOTES.extra,
     };
   } catch {
     return { ...DEFAULT_USER_NOTES };
@@ -411,6 +413,7 @@ function renderPromptContextControls() {
     { key: 'pomodoro', labelKey: 'pomodoroLabel', rows: 2 },
     { key: 'habit', labelKey: 'habitLabel', rows: 2 },
     { key: 'filter', labelKey: 'filterLabel', rows: 3 },
+    { key: 'extra', labelKey: 'extraLabel', rows: 3 },
   ];
 
   for (const field of noteFields) {

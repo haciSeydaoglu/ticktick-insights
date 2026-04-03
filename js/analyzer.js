@@ -4,7 +4,7 @@
  * Single-pass design for performance.
  */
 
-import { daysBetween, getMonthKey } from './utils.js?v=0.1.18';
+import { daysBetween, getMonthKey } from './utils.js?v=0.1.19';
 
 /**
  * Analyze an array of parsed tasks and produce comprehensive statistics.

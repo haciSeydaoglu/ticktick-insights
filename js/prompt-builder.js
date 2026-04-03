@@ -5,7 +5,7 @@
  * Keeps prompt size between 5-15KB to be context-friendly.
  */
 
-import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js?v=0.1.18';
+import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js?v=0.1.19';
 
 const DEFAULT_CONTEXT = {
   users: 'solo',
@@ -291,13 +291,15 @@ export function buildPromptData(analysis, lang = 'tr', context = {}, userNotes =
   const pomodoro = typeof userNotes.pomodoro === 'string' ? userNotes.pomodoro.trim() : '';
   const habit = typeof userNotes.habit === 'string' ? userNotes.habit.trim() : '';
   const filter = typeof userNotes.filter === 'string' ? userNotes.filter.trim() : '';
+  const extra = typeof userNotes.extra === 'string' ? userNotes.extra.trim() : '';
 
-  if (pomodoro || habit || filter) {
+  if (pomodoro || habit || filter || extra) {
     lines.push(`## ${t.userWorkSystemTitle}`);
     lines.push('');
     if (pomodoro) lines.push(`**${t.userWorkSystemPomodoro}:** ${pomodoro}`);
     if (habit) lines.push(`**${t.userWorkSystemHabit}:** ${habit}`);
     if (filter) lines.push(`**${t.userWorkSystemFilter}:** ${filter}`);
+    if (extra) lines.push(`**${t.userWorkSystemExtra}:** ${extra}`);
     lines.push('');
   }
 
@@ -343,13 +345,15 @@ export function buildPrompt(analysis, lang = 'tr', context = DEFAULT_CONTEXT, us
   const pomodoro = typeof userNotes.pomodoro === 'string' ? userNotes.pomodoro.trim() : '';
   const habit = typeof userNotes.habit === 'string' ? userNotes.habit.trim() : '';
   const filter = typeof userNotes.filter === 'string' ? userNotes.filter.trim() : '';
+  const extra = typeof userNotes.extra === 'string' ? userNotes.extra.trim() : '';
 
-  if (pomodoro || habit || filter) {
+  if (pomodoro || habit || filter || extra) {
     lines.push(`## ${t.userWorkSystemTitle}`);
     lines.push('');
     if (pomodoro) lines.push(`**${t.userWorkSystemPomodoro}:** ${pomodoro}`);
     if (habit) lines.push(`**${t.userWorkSystemHabit}:** ${habit}`);
     if (filter) lines.push(`**${t.userWorkSystemFilter}:** ${filter}`);
+    if (extra) lines.push(`**${t.userWorkSystemExtra}:** ${extra}`);
     lines.push('');
   }
 
@@ -585,6 +589,7 @@ const translations = {
     userWorkSystemPomodoro: 'Pomodoro',
     userWorkSystemHabit: 'Alışkanlık',
     userWorkSystemFilter: 'Filtreleme/Öncelik Sistemi',
+    userWorkSystemExtra: 'Ek Notlar',
     ticktickFeatures: 'TickTick Özellikleri Referansı',
     features: [
       { name: 'Smart Lists (Akıllı Listeler)', desc: 'Filtrelere göre otomatik görev toplayan sanal listeler (örn: "Bu hafta bitenler", "Yüksek öncelikli")' },
@@ -828,6 +833,7 @@ const translations = {
     userWorkSystemPomodoro: 'Pomodoro',
     userWorkSystemHabit: 'Habit Tracking',
     userWorkSystemFilter: 'Filter/Priority System',
+    userWorkSystemExtra: 'Additional Notes',
     ticktickFeatures: 'TickTick Features Reference',
     features: [
       { name: 'Smart Lists', desc: 'Virtual lists that automatically collect tasks based on filters (e.g., "Due this week", "High priority")' },
