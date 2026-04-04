@@ -13,8 +13,8 @@ import {
   formatDate,
   priorityLabel,
   truncate,
-} from './utils.js?v=0.1.25';
-import { t } from './i18n.js?v=0.1.25';
+} from './utils.js?v=0.2.0';
+import { t } from './i18n.js?v=0.2.0';
 
 /**
  * Create a Lucide icon element.

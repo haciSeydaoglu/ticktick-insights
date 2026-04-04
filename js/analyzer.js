@@ -4,7 +4,7 @@
  * Single-pass design for performance.
  */
 
-import { daysBetween, getMonthKey } from './utils.js?v=0.1.25';
+import { daysBetween, getMonthKey } from './utils.js?v=0.2.0';
 
 /**
  * Analyze an array of parsed tasks and produce comprehensive statistics.
@@ -347,6 +347,7 @@ export function analyze(tasks) {
       oldestPendingTasks,
       recentActivity,
     },
+    allTasks: tasks,
   };
 }
 

@@ -27,6 +27,8 @@ const translations = {
     feat5Desc: '24 aylık görev oluşturma ve tamamlama trendlerinizi görselleştirin. Tükenmişlik dönemlerini, mevsimsel verimlilik değişimlerini ve sessizce TickTick\'i bıraktığınız haftaları keşfedin.',
     feat6Title: 'Klasör ve Liste Detayları',
     feat6Desc: 'Her klasör ve listeye derinlemesine dalın: liste bazlı tamamlanma oranları, etiket dağılımları ve bekleyen/tamamlanan son görevler — hiçbir liste incelenmeden kalmaz.',
+    feat8Title: 'Hızlı Görev Arama',
+    feat8Desc: 'Tüm görevlerinizde anında arama yapın. TickTick\'in yetersiz aramasının aksine başlık, içerik, etiket ve liste adında eş zamanlı arama desteklenir.',
     howItWorks: 'Nasıl Çalışır?',
     step1: 'TickTick Web > Avatar > Ayarlar > Yedek Oluştur adımlarını takip edin',
     step2: 'Dosyayı buraya sürükleyip bırakın',
@@ -180,6 +182,17 @@ const translations = {
     recentFiles: 'Son Yüklenen Dosyalar',
     clearAll: 'Tümünü Temizle',
     fileNotFound: 'Dosya verisi bulunamadı. Lütfen dosyayı tekrar yükleyin.',
+    // Search
+    searchPlaceholder: 'Görev ara... (başlık, içerik, etiket, liste)',
+    searchNoResults: 'Sonuç bulunamadı.',
+    searchResultCount: 'sonuç bulundu',
+    searchResultMore: 'daha fazla — aramayı daraltın',
+    // Settings
+    settingsTitle: 'Ayarlar',
+    // Clear data
+    clearAllData: 'Tüm Verileri Sil',
+    clearAllDataCheckbox: 'Tercihlerimi, dosya geçmişimi ve tüm yerel verileri sileceğimi anlıyorum.',
+    clearAllDataSuccess: 'Tüm veriler silindi.',
   },
   en: {
     // Hero / Landing
@@ -204,6 +217,8 @@ const translations = {
     feat5Desc: 'Visualize 24 months of task creation vs. completion trends. Spot burnout periods, seasonal productivity shifts, and weeks you quietly stopped using TickTick.',
     feat6Title: 'Folder & List Details',
     feat6Desc: 'Deep-dive into every folder and list with per-list completion rates, tag breakdowns, and the latest pending and completed tasks — no list left unexamined.',
+    feat8Title: 'Instant Task Search',
+    feat8Desc: 'Search across all your tasks instantly. Unlike TickTick\'s limited search, this searches title, content, tags, and list name simultaneously — results appear as you type.',
     howItWorks: 'How It Works',
     step1: 'Go to TickTick Web > Avatar > Settings > Generate Backup',
     step2: 'Drag & drop the file here',
@@ -354,6 +369,17 @@ const translations = {
     recentFiles: 'Recent Files',
     clearAll: 'Clear All',
     fileNotFound: 'File data not found. Please upload the file again.',
+    // Search
+    searchPlaceholder: 'Search tasks... (title, content, tag, list)',
+    searchNoResults: 'No results found.',
+    searchResultCount: 'results found',
+    searchResultMore: 'more — refine your search',
+    // Settings
+    settingsTitle: 'Settings',
+    // Clear data
+    clearAllData: 'Clear All Data',
+    clearAllDataCheckbox: 'I understand this will delete my preferences, file history, and all local data.',
+    clearAllDataSuccess: 'All data cleared.',
   },
 };
 

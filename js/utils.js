@@ -137,35 +137,6 @@ export function priorityLabel(priority) {
 }
 
 /**
- * Map TickTick priority number to CSS class suffix.
- * @param {number} priority
- * @returns {string}
- */
-export function priorityClass(priority) {
-  const classes = { 0: 'none', 1: 'low', 3: 'medium', 5: 'high' };
-  return classes[priority] || 'none';
-}
-
-/**
- * Map TickTick status number to label.
- * @param {number} status
- * @returns {string}
- */
-export function statusLabel(status) {
-  if (getCurrentLang() === 'tr') {
-    if (status === 0) return 'Bekleyen';
-    if (status === 1 || status === 2) return 'Tamamlanan';
-    if (status === -1) return 'Silinen';
-    return 'Bilinmiyor';
-  }
-
-  if (status === 0) return 'Pending';
-  if (status === 1 || status === 2) return 'Completed';
-  if (status === -1) return 'Deleted';
-  return 'Unknown';
-}
-
-/**
  * Truncate a string to a max length with ellipsis.
  * @param {string} str
  * @param {number} max

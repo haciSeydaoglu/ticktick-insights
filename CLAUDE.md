@@ -14,15 +14,17 @@ A client-side web application that analyzes TickTick backup CSV files and genera
 
 ## File Structure
 ```
-index.html              - Single page application (Tailwind CDN loaded here)
-css/style.css           - Custom styles beyond Tailwind (collapsible, scrollbar, state)
-js/app.js               - Main orchestration, event handlers, state management
-js/csv-parser.js        - RFC 4180 CSV parser with TickTick-specific handling
-js/analyzer.js          - Data analysis, statistics, feature usage scoring
-js/i18n.js              - UI internationalization (TR/EN) translations
-js/dashboard.js         - DOM rendering for insight dashboard
-js/prompt-builder.js    - TR/EN prompt template generation
-js/utils.js             - Sanitization, date formatting, helpers
+index.html                - Single page application (Tailwind CDN loaded here)
+css/style.css             - Custom styles beyond Tailwind (collapsible, scrollbar, state)
+js/app.js                 - Main orchestrator: screen nav, theme, language, tab switching, search, settings modal
+js/backup-controller.js   - CSV upload, analysis, prompt UI, recent files, search functions
+js/prompt-context.js      - Prompt config constants and pure helper functions
+js/csv-parser.js          - RFC 4180 CSV parser with TickTick-specific handling
+js/analyzer.js            - Data analysis, statistics, feature usage scoring
+js/i18n.js                - UI internationalization (TR/EN) translations
+js/dashboard.js           - DOM rendering for insight dashboard
+js/prompt-builder.js      - TR/EN prompt template generation
+js/utils.js               - Sanitization, date formatting, helpers
 ```
 
 ## TickTick CSV Format
@@ -37,11 +39,10 @@ js/utils.js             - Sanitization, date formatting, helpers
 
 ## Security Rules (CRITICAL)
 1. **No innerHTML with user data** - Always use `textContent` or `createTextNode()`
-2. **No external requests** - No fetch(), XMLHttpRequest, WebSocket
+2. **No external network requests** - No fetch/XHR/WebSocket requests permitted
 3. **Local-only storage** - Theme, UI language, and recent-file metadata use localStorage; CSV content uses IndexedDB; no cookies
-4. **CSP enforced** - Content-Security-Policy meta tag in HTML
-5. **File validation** - Check extension, size, and header format
-6. **CSV files in .gitignore** - Never commit user data
+4. **File validation** - Check extension, size, and header format
+5. **CSV files in .gitignore** - Never commit user data
 
 ## Coding Conventions
 - All code in English (variables, functions, comments)
@@ -54,14 +55,26 @@ js/utils.js             - Sanitization, date formatting, helpers
 
 ### Source of Truth
 - `js/version.js` is the single source of truth for the app version
-- Format: SemVer patch — `'X.Y.Z'`
+- Format: SemVer — `'X.Y.Z'`
+
+### Version Bump Rules
+
+Determine the bump level based on the scope of the change set:
+
+| Level | When to use | Example |
+|-------|------------|---------|
+| **Patch** (+0.0.1) | Bug fix, copy change, style tweak, small improvement | `0.1.25` → `0.1.26` |
+| **Minor** (+0.1.0) | New feature, new UI section, significant behavior change | `0.1.25` → `0.2.0` |
+| **Major** (+1.0.0) | Breaking change, major architecture rewrite, public API change | `0.1.25` → `1.0.0` |
+
+- When in doubt between patch and minor, **ask the user**
+- Minor and major bumps **reset lower segments to 0** (e.g., `0.3.12` minor → `0.4.0`)
+- Major bumps require explicit user approval before applying
 
 ### Required Steps After Every Code Change
 
-**After every completed change set, increment the patch version by 1:**
-
-1. Read `js/version.js` → get the current `APP_VERSION` value (e.g., `'0.1.25'`)
-2. Increment patch by 1: `'0.1.25'` → `'0.1.26'`
+1. Read `js/version.js` → get the current `APP_VERSION` value
+2. Determine the appropriate bump level (patch / minor / major)
 3. Update the `APP_VERSION` value in `js/version.js`
 4. Update all cache-bust version stamps (see below)
 
@@ -72,9 +85,11 @@ Replace every `?v=OLD_VERSION` with `?v=NEW_VERSION` in the following files:
 | File | Lines to update |
 |------|----------------|
 | `index.html` | `css/style.css?v=...` and `js/app.js?v=...` |
-| `js/app.js` | All 7 `import ... from './xxx.js?v=...'` lines |
+| `js/app.js` | All `import ... from './xxx.js?v=...'` lines |
+| `js/backup-controller.js` | All `import ... from './xxx.js?v=...'` lines |
+| `js/prompt-context.js` | `import ... from './i18n.js?v=...'` |
 | `js/analyzer.js` | `import ... from './utils.js?v=...'` |
-| `js/dashboard.js` | `import ... from './utils.js?v=...'` and `import ... from './i18n.js?v=...'` |
+| `js/dashboard.js` | `import ... from './utils.js?v=...'`, `import ... from './i18n.js?v=...'` |
 | `js/prompt-builder.js` | `import ... from './utils.js?v=...'` |
 
 **Method:** Use `Edit` with `replace_all: true` for each file to swap old version string with new.
@@ -97,6 +112,6 @@ Then open http://localhost:8080
 ## Key Design Decisions
 - Single-pass analysis: analyzer.js iterates tasks once to build all groupings
 - Prompt size target: 5-15KB (vs raw CSV which can be megabytes)
-- Prompt may ask the pasted-into AI tool for selective current research, but the app itself must remain fully local and make no network requests
+- Prompt may ask the pasted-into AI tool for selective current research; the app itself makes no network requests
 - Per-list detail: top 5 pending + top 5 completed tasks shown in prompt; remaining count shown as "+ X more" using list totals
 - Feature usage scoring: Low/Medium/Good based on usage percentages

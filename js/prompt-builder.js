@@ -5,7 +5,7 @@
  * Keeps prompt size between 5-15KB to be context-friendly.
  */
 
-import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js?v=0.1.25';
+import { formatDate, formatPercent, formatNumber, priorityLabel, truncate } from './utils.js?v=0.2.0';
 
 const DEFAULT_CONTEXT = {
   users: 'solo',
